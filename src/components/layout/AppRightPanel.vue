@@ -22,7 +22,7 @@
     <!-- 面板内容 -->
     <div class="flex-1 overflow-y-auto">
       <!-- 文档信息 -->
-      <div v-if="tabsStore.activeTab?.type === 'document'" class="p-4">
+      <div v-if="tabGroupsStore.activeTab?.type === 'editor'" class="p-4">
         <div class="space-y-4">
           <div>
             <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-2">文档信息</h4>
@@ -37,7 +37,7 @@
               </div>
               <div class="flex justify-between">
                 <span>最后修改:</span>
-                <span>{{ formatDate(tabsStore.activeTab?.lastModified) }}</span>
+                <span>{{ formatDate(tabGroupsStore.activeTab?.lastModified) }}</span>
               </div>
             </div>
           </div>
@@ -69,10 +69,10 @@
 
 <script setup lang="ts">
 import { ref, onUnmounted } from 'vue';
-import { useTabsStore } from '../../stores/tabs';
+import { useTabGroupsStore } from '../../stores/tabGroups';
 import { useAppStore } from '../../stores/app';
 
-const tabsStore = useTabsStore();
+const tabGroupsStore = useTabGroupsStore();
 const appStore = useAppStore();
 
 const isResizing = ref(false);
@@ -120,18 +120,18 @@ onUnmounted(() => {
 });
 
 const getPanelTitle = () => {
-  if (tabsStore.activeTab?.type === 'document') {
+  if (tabGroupsStore.activeTab?.type === 'editor') {
     return '文档信息';
   }
   return '信息面板';
 };
 
 const getCharacterCount = () => {
-  return tabsStore.activeTab?.content?.length || 0;
+  return tabGroupsStore.activeTab?.content?.length || 0;
 };
 
 const getLineCount = () => {
-  return tabsStore.activeTab?.content?.split('\n').length || 0;
+  return tabGroupsStore.activeTab?.content?.split('\n').length || 0;
 };
 
 const formatDate = (date: Date | undefined) => {

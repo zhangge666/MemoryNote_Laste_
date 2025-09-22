@@ -40,8 +40,18 @@ export const useAppStore = defineStore('app', () => {
     }
   };
 
-  const setWorkspacePath = (path: string) => {
+  const setWorkspacePath = async (path: string) => {
+    const success = await window.electronAPI.setWorkspacePath(path);
+    if (success) {
+      workspacePath.value = path;
+    }
+    return success;
+  };
+
+  const getWorkspacePath = async () => {
+    const path = await window.electronAPI.getWorkspacePath();
     workspacePath.value = path;
+    return path;
   };
 
   const updateLeftPanelWidth = (width: number) => {
@@ -63,6 +73,9 @@ export const useAppStore = defineStore('app', () => {
   const initializeApp = async () => {
     // 初始化应用
     console.log('Initializing MemoryNote app...');
+    
+    // 获取工作区路径
+    await getWorkspacePath();
     
     // 检查系统主题偏好
     const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -95,6 +108,7 @@ export const useAppStore = defineStore('app', () => {
     setCurrentView,
     toggleDarkMode,
     setWorkspacePath,
+    getWorkspacePath,
     updateLeftPanelWidth,
     updateRightPanelWidth,
     setLeftPanelResizing,

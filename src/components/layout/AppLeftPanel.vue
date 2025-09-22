@@ -22,36 +22,8 @@
     <!-- 面板内容 -->
     <div class="flex-1 overflow-y-auto">
       <!-- 文档列表 -->
-      <div v-if="appStore.currentView === 'documents'" class="p-4">
-        <div class="space-y-2">
-          <div
-            v-for="note in notes"
-            :key="note.id"
-            @click="openNote(note)"
-            class="p-3 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 cursor-pointer transition-colors"
-          >
-            <h4 class="text-sm font-medium text-gray-900 dark:text-white truncate">
-              {{ note.title }}
-            </h4>
-            <p class="text-xs text-gray-500 dark:text-gray-400 mt-1 truncate">
-              {{ note.content?.substring(0, 100) }}...
-            </p>
-            <div class="flex items-center justify-between mt-2">
-              <span class="text-xs text-gray-400">
-                {{ formatDate(note.updated_at) }}
-              </span>
-              <div class="flex space-x-1">
-                <span
-                  v-for="tag in getTags(note.tags)"
-                  :key="tag"
-                  class="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded"
-                >
-                  {{ tag }}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
+      <div v-if="appStore.currentView === 'documents'" class="h-full">
+        <FileTree @open-file="handleOpenFile" />
       </div>
       
       <!-- 日记列表 -->
@@ -87,10 +59,11 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
 import { useAppStore } from '../../stores/app';
-import { useTabsStore } from '../../stores/tabs';
+import { useTabGroupsStore } from '@/stores/tabGroups';
+import FileTree from '../fileTree/FileTree.vue';
 
 const appStore = useAppStore();
-const tabsStore = useTabsStore();
+const tabGroupsStore = useTabGroupsStore();
 
 const notes = ref([]);
 const isResizing = ref(false);
@@ -154,6 +127,17 @@ const openNote = (note: any) => {
     type: 'document',
     content: note.content,
     metadata: { noteId: note.id }
+  });
+};
+
+// 处理打开文件
+const handleOpenFile = (filePath: string, fileName: string) => {
+  // 使用新的标签页组系统打开编辑器
+  tabGroupsStore.addTabToGroup({
+    title: fileName,
+    type: 'editor',
+    filePath: filePath,
+    content: '',
   });
 };
 

@@ -8,7 +8,7 @@
         @click="handleNavigation(item.id)"
         class="w-10 h-10 flex items-center justify-center rounded-lg transition-colors"
         :class="[
-          appStore.currentView === item.id
+          (item.id === 'documents' ? isDocumentActive : appStore.currentView === item.id)
             ? 'bg-primary-100 dark:bg-primary-900 text-primary-600 dark:text-primary-400'
             : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
         ]"
@@ -67,7 +67,7 @@
       
       <!-- 设置按钮 -->
       <button
-        @click="handleNavigation('settings')"
+        @click="openSettings"
         class="w-10 h-10 flex items-center justify-center rounded-lg transition-colors"
         :class="[
           appStore.currentView === 'settings'
@@ -86,11 +86,28 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue';
 import { useAppStore } from '../../stores/app';
-import { useTabsStore } from '../../stores/tabs';
+import { useTabGroupsStore } from '@/stores/tabGroups';
 
 const appStore = useAppStore();
-const tabsStore = useTabsStore();
+const tabGroupsStore = useTabGroupsStore();
+
+// 计算属性：判断是否应该高亮文档图标
+const isDocumentActive = computed(() => {
+  // 如果当前视图是文档，则高亮
+  if (appStore.currentView === 'documents') {
+    return true;
+  }
+  
+  // 如果当前有编辑器标签页，并且当前视图不是其他特定视图，则高亮文档图标
+  if (tabGroupsStore.activeTab?.type === 'editor' && 
+      !['diary', 'review', 'search'].includes(appStore.currentView)) {
+    return true;
+  }
+  
+  return false;
+});
 
 const navigationItems = [
   {
@@ -115,10 +132,18 @@ const handleNavigation = (viewId: string) => {
   appStore.setCurrentView(viewId);
   
   // 打开对应的标签页
-  tabsStore.openTab({
-    id: `${viewId}_${Date.now()}`,
+  tabGroupsStore.addTabToGroup({
     title: navigationItems.find(item => item.id === viewId)?.title || '新页面',
     type: viewId as any,
+    content: '',
+  });
+};
+
+const openSettings = () => {
+  // 打开设置标签页
+  tabGroupsStore.addTabToGroup({
+    title: '设置',
+    type: 'settings',
     content: '',
   });
 };

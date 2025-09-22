@@ -20,7 +20,7 @@
     <!-- 右侧信息 -->
     <div class="flex items-center space-x-4 text-xs text-gray-600 dark:text-gray-400">
       <!-- 概览信息 -->
-      <div v-if="!tabsStore.activeTab" class="flex items-center space-x-4">
+      <div v-if="!tabGroupsStore.activeTab" class="flex items-center space-x-4">
         <div class="flex items-center space-x-1">
           <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -36,12 +36,32 @@
       </div>
       
       <!-- 文档信息 -->
-      <div v-else class="flex items-center space-x-4">
+      <div v-else-if="tabGroupsStore.activeTab.type === 'editor'" class="flex items-center space-x-4">
+        <div class="flex items-center space-x-1">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+          <span>{{ getFileName() }}</span>
+        </div>
         <div class="flex items-center space-x-1">
           <span>行 {{ getCurrentLine() }}, 列 {{ getCurrentColumn() }}</span>
         </div>
         <div class="flex items-center space-x-1">
           <span>{{ getCharacterCount() }} 字符</span>
+        </div>
+        <div v-if="tabGroupsStore.activeTab.isDirty" class="flex items-center space-x-1">
+          <div class="w-2 h-2 bg-orange-500 rounded-full"></div>
+          <span>未保存</span>
+        </div>
+      </div>
+      
+      <!-- 其他类型标签页信息 -->
+      <div v-else class="flex items-center space-x-4">
+        <div class="flex items-center space-x-1">
+          <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+          </svg>
+          <span>{{ tabGroupsStore.activeTab.title }}</span>
         </div>
       </div>
     </div>
@@ -51,27 +71,36 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
 import { useAppStore } from '../../stores/app';
-import { useTabsStore } from '../../stores/tabs';
+import { useTabGroupsStore } from '../../stores/tabGroups';
 
 const appStore = useAppStore();
-const tabsStore = useTabsStore();
+const tabGroupsStore = useTabGroupsStore();
 
 const notesCount = ref(0);
 const reviewCount = ref(0);
 
+const getFileName = () => {
+  const activeTab = tabGroupsStore.activeTab;
+  if (!activeTab?.filePath) return '未命名文件';
+  return activeTab.filePath.split(/[\\\/]/).pop() || '未命名文件';
+};
+
 const getCurrentLine = () => {
-  if (!tabsStore.activeTab?.content) return 1;
-  return tabsStore.activeTab.content.split('\n').length;
+  const activeTab = tabGroupsStore.activeTab;
+  if (!activeTab?.content) return 1;
+  return activeTab.content.split('\n').length;
 };
 
 const getCurrentColumn = () => {
-  if (!tabsStore.activeTab?.content) return 1;
-  const lines = tabsStore.activeTab.content.split('\n');
+  const activeTab = tabGroupsStore.activeTab;
+  if (!activeTab?.content) return 1;
+  const lines = activeTab.content.split('\n');
   const lastLine = lines[lines.length - 1];
   return lastLine.length + 1;
 };
 
 const getCharacterCount = () => {
-  return tabsStore.activeTab?.content?.length || 0;
+  const activeTab = tabGroupsStore.activeTab;
+  return activeTab?.content?.length || 0;
 };
 </script>

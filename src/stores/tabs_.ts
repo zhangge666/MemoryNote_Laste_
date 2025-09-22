@@ -4,13 +4,14 @@ import { ref, computed } from 'vue';
 export interface TabState {
   id: string;
   title: string;
-  type: 'document' | 'diary' | 'review' | 'search' | 'settings';
+  type: 'document' | 'diary' | 'review' | 'search' | 'settings' | 'editor';
   content?: string;
   isActive: boolean;
   isDirty: boolean;
   lastModified: Date;
   parentTabId?: string;
   metadata?: Record<string, any>;
+  filePath?: string; // 添加文件路径支持
 }
 
 export const useTabsStore = defineStore('tabs', () => {
@@ -33,17 +34,32 @@ export const useTabsStore = defineStore('tabs', () => {
   );
 
   // 动作
-  const openTab = (tabData: Partial<TabState>) => {
+  const openTab = (tabData: Partial<TabState>): string => {
+    const tabType = tabData.type || 'document';
+    
+    // 检查是否已经存在相同类型的标签页（除了编辑器类型）
+    if (tabType !== 'editor') {
+      const existingTab = tabs.value.find(tab => tab.type === tabType);
+      if (existingTab) {
+        console.log(`Found existing ${tabType} tab, switching to:`, existingTab.id);
+        switchTab(existingTab.id);
+        return existingTab.id;
+      }
+    }
+    
+    console.log(`Creating new ${tabType} tab`);
+    
     const newTab: TabState = {
       id: tabData.id || `tab_${Date.now()}`,
       title: tabData.title || '新标签页',
-      type: tabData.type || 'document',
+      type: tabType,
       content: tabData.content || '',
       isActive: true,
       isDirty: false,
       lastModified: new Date(),
       parentTabId: tabData.parentTabId,
       metadata: tabData.metadata || {},
+      filePath: tabData.filePath,
     };
 
     // 将其他标签页设为非活动状态
@@ -58,6 +74,8 @@ export const useTabsStore = defineStore('tabs', () => {
     
     // 保存到本地存储
     saveTabState(newTab);
+    
+    return newTab.id;
   };
 
   const closeTab = (tabId: string) => {
@@ -140,19 +158,37 @@ export const useTabsStore = defineStore('tabs', () => {
     saveTabState(tab);
   };
 
-  const saveTabState = (tab: TabState) => {
+  const saveTabState = (tabOrId: TabState | string, data?: { content?: string; isDirty?: boolean }) => {
     try {
+      let targetTab: TabState | undefined;
+      
+      if (typeof tabOrId === 'string') {
+        // 如果传入的是字符串，查找对应的标签页
+        targetTab = tabs.value.find(t => t.id === tabOrId);
+        if (targetTab && data) {
+          // 更新标签页数据
+          if (data.content !== undefined) targetTab.content = data.content;
+          if (data.isDirty !== undefined) targetTab.isDirty = data.isDirty;
+          targetTab.lastModified = new Date();
+        }
+      } else {
+        targetTab = tabOrId;
+      }
+      
+      if (!targetTab) return;
+      
       const state = {
-        id: tab.id,
-        title: tab.title,
-        type: tab.type,
-        content: tab.content,
-        isDirty: tab.isDirty,
-        lastModified: tab.lastModified.toISOString(),
-        parentTabId: tab.parentTabId,
-        metadata: tab.metadata,
+        id: targetTab.id,
+        title: targetTab.title,
+        type: targetTab.type,
+        content: targetTab.content,
+        isDirty: targetTab.isDirty,
+        lastModified: targetTab.lastModified?.toISOString() || new Date().toISOString(),
+        parentTabId: targetTab.parentTabId,
+        metadata: targetTab.metadata,
+        filePath: targetTab.filePath,
       };
-      localStorage.setItem(`tab_${tab.id}`, JSON.stringify(state));
+      localStorage.setItem(`tab_${targetTab.id}`, JSON.stringify(state));
     } catch (error) {
       console.error('Failed to save tab state:', error);
     }
@@ -175,12 +211,54 @@ export const useTabsStore = defineStore('tabs', () => {
 
   const clearAllTabs = () => {
     // 保存所有标签页状态
-    tabs.value.forEach(saveTabState);
+    tabs.value.forEach(tab => saveTabState(tab));
     
     // 清空标签页
     tabs.value = [];
     activeTabId.value = '';
     tabHistory.value = [];
+  };
+
+  // 打开编辑器标签页
+  const openEditorTab = (filePath: string, title?: string) => {
+    const fileName = title || filePath.split(/[\\\/]/).pop() || '未命名';
+    
+    // 标准化文件路径
+    const normalizedPath = filePath.replace(/\//g, '\\');
+    
+    // 检查是否已经存在该文件的标签页
+    const existingTab = tabs.value.find(tab => 
+      tab.filePath === normalizedPath || 
+      tab.filePath === filePath ||
+      (tab.type === 'editor' && tab.metadata?.filePath === normalizedPath)
+    );
+    
+    if (existingTab) {
+      console.log('Found existing tab for file:', filePath, 'switching to:', existingTab.id);
+      switchTab(existingTab.id);
+      return existingTab.id;
+    }
+    
+    console.log('Creating new tab for file:', filePath);
+    
+    const tabId = `editor-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    const newTab: TabState = {
+      id: tabId,
+      title: fileName,
+      type: 'editor',
+      content: '',
+      isActive: false,
+      isDirty: false,
+      lastModified: new Date(),
+      filePath: normalizedPath,
+      metadata: {
+        filePath: normalizedPath,
+        fileType: 'markdown'
+      }
+    };
+    
+    return openTab(newTab);
   };
 
   return {
@@ -203,5 +281,6 @@ export const useTabsStore = defineStore('tabs', () => {
     saveTabState,
     restoreTabState,
     clearAllTabs,
+    openEditorTab,
   };
 });

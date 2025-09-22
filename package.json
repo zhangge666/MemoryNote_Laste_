@@ -12,7 +12,13 @@
     "lint": "eslint --ext .ts,.tsx,.vue .",
     "build": "electron-forge make"
   },
-  "keywords": ["electron", "vue", "knowledge-base", "learning", "notes"],
+  "keywords": [
+    "electron",
+    "vue",
+    "knowledge-base",
+    "learning",
+    "notes"
+  ],
   "author": {
     "name": "zhangge666",
     "email": "2395217248@qq.com"
@@ -29,9 +35,9 @@
     "@electron-forge/plugin-vite": "^7.9.0",
     "@electron/fuses": "^1.8.0",
     "@types/electron-squirrel-startup": "^1.0.2",
+    "@types/node": "^20.19.17",
     "@typescript-eslint/eslint-plugin": "^6.21.0",
     "@typescript-eslint/parser": "^6.21.0",
-    "@types/node": "^20.19.17",
     "@vitejs/plugin-vue": "^5.1.4",
     "autoprefixer": "^10.4.20",
     "electron": "38.1.2",
@@ -45,17 +51,21 @@
     "vue-tsc": "^2.1.10"
   },
   "dependencies": {
-    "electron-squirrel-startup": "^1.0.1",
-    "vue": "^3.5.13",
-    "pinia": "^2.2.6",
-    "better-sqlite3": "^11.6.0",
-    "axios": "^1.7.9",
-    "marked": "^14.1.3",
-    "@codemirror/lang-markdown": "^6.3.3",
-    "@codemirror/theme-one-dark": "^6.1.2",
+    "@codemirror/autocomplete": "^6.18.7",
+    "@codemirror/basic-setup": "^0.20.0",
+    "@codemirror/commands": "^6.8.1",
+    "@codemirror/lang-markdown": "^6.3.4",
+    "@codemirror/search": "^6.5.11",
+    "@codemirror/state": "^6.5.2",
+    "@codemirror/theme-one-dark": "^6.1.3",
     "@codemirror/view": "^6.38.3",
-    "@codemirror/state": "^6.4.4",
-    "@codemirror/commands": "^6.7.3",
-    "date-fns": "^4.1.0"
+    "axios": "^1.7.9",
+    "better-sqlite3": "^11.6.0",
+    "codemirror": "^6.0.2",
+    "date-fns": "^4.1.0",
+    "electron-squirrel-startup": "^1.0.1",
+    "marked": "^14.1.3",
+    "pinia": "^2.2.6",
+    "vue": "^3.5.13"
   }
 }

@@ -6,11 +6,11 @@
     <!-- 内容区域 -->
     <div class="flex-1 flex overflow-hidden">
       <!-- 侧边导航栏 -->
-      <AppSidebar />
+      <AppSidebar class="flex-shrink-0"/>
       
       <!-- 左侧栏容器 -->
       <div 
-        class="overflow-hidden h-full"
+        class="overflow-hidden h-full flex-shrink-0"
         :class="{ 'transition-all duration-300 ease-in-out': !appStore.isLeftPanelResizing }"
         :style="{ width: appStore.leftSidebarVisible ? `${appStore.leftPanelWidth}px` : '0px' }"
       >
@@ -18,11 +18,11 @@
       </div>
       
       <!-- 主工作区域 -->
-      <AppMain />
+      <AppMain class="flex-1 min-w-0 overflow-hidden"/>
       
       <!-- 右侧栏容器 -->
       <div 
-        class="overflow-hidden h-full"
+        class="overflow-hidden h-full flex-shrink-0"
         :class="{ 'transition-all duration-300 ease-in-out': !appStore.isRightPanelResizing }"
         :style="{ width: appStore.rightSidebarVisible ? `${appStore.rightPanelWidth}px` : '0px' }"
       >
