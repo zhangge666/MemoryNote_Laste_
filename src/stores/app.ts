@@ -1,0 +1,104 @@
+import { defineStore } from 'pinia';
+import { ref, computed } from 'vue';
+
+export const useAppStore = defineStore('app', () => {
+  // 状态
+  const leftSidebarVisible = ref(true);
+  const rightSidebarVisible = ref(false);
+  const leftPanelWidth = ref(240);
+  const rightPanelWidth = ref(240);
+  const isLeftPanelResizing = ref(false);
+  const isRightPanelResizing = ref(false);
+  const currentView = ref('documents');
+  const isDarkMode = ref(false);
+  const workspacePath = ref('');
+
+  // 计算属性
+  const leftSidebarActive = computed(() => leftSidebarVisible.value);
+  const rightSidebarActive = computed(() => rightSidebarVisible.value);
+
+  // 动作
+  const toggleLeftSidebar = () => {
+    leftSidebarVisible.value = !leftSidebarVisible.value;
+  };
+
+  const toggleRightSidebar = () => {
+    rightSidebarVisible.value = !rightSidebarVisible.value;
+  };
+
+  const setCurrentView = (view: string) => {
+    currentView.value = view;
+  };
+
+  const toggleDarkMode = () => {
+    isDarkMode.value = !isDarkMode.value;
+    // 更新 HTML 类名
+    if (isDarkMode.value) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  };
+
+  const setWorkspacePath = (path: string) => {
+    workspacePath.value = path;
+  };
+
+  const updateLeftPanelWidth = (width: number) => {
+    leftPanelWidth.value = width;
+  };
+
+  const updateRightPanelWidth = (width: number) => {
+    rightPanelWidth.value = width;
+  };
+
+  const setLeftPanelResizing = (resizing: boolean) => {
+    isLeftPanelResizing.value = resizing;
+  };
+
+  const setRightPanelResizing = (resizing: boolean) => {
+    isRightPanelResizing.value = resizing;
+  };
+
+  const initializeApp = async () => {
+    // 初始化应用
+    console.log('Initializing MemoryNote app...');
+    
+    // 检查系统主题偏好
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    isDarkMode.value = prefersDark;
+    
+    if (isDarkMode.value) {
+      document.documentElement.classList.add('dark');
+    }
+  };
+
+  return {
+    // 状态
+    leftSidebarVisible,
+    rightSidebarVisible,
+    leftPanelWidth,
+    rightPanelWidth,
+    isLeftPanelResizing,
+    isRightPanelResizing,
+    currentView,
+    isDarkMode,
+    workspacePath,
+    
+    // 计算属性
+    leftSidebarActive,
+    rightSidebarActive,
+    
+    // 动作
+    toggleLeftSidebar,
+    toggleRightSidebar,
+    setCurrentView,
+    toggleDarkMode,
+    setWorkspacePath,
+    updateLeftPanelWidth,
+    updateRightPanelWidth,
+    setLeftPanelResizing,
+    setRightPanelResizing,
+    initializeApp,
+  };
+});

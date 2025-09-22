@@ -1,0 +1,61 @@
+{
+  "name": "memorynote",
+  "productName": "MemoryNote",
+  "version": "1.0.0",
+  "description": "个人学习知识库系统 - 智能化的本地知识建立管理平台",
+  "main": ".vite/build/main.js",
+  "scripts": {
+    "start": "electron-forge start",
+    "package": "electron-forge package",
+    "make": "electron-forge make",
+    "publish": "electron-forge publish",
+    "lint": "eslint --ext .ts,.tsx,.vue .",
+    "build": "electron-forge make"
+  },
+  "keywords": ["electron", "vue", "knowledge-base", "learning", "notes"],
+  "author": {
+    "name": "zhangge666",
+    "email": "2395217248@qq.com"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@electron-forge/cli": "^7.9.0",
+    "@electron-forge/maker-deb": "^7.9.0",
+    "@electron-forge/maker-rpm": "^7.9.0",
+    "@electron-forge/maker-squirrel": "^7.9.0",
+    "@electron-forge/maker-zip": "^7.9.0",
+    "@electron-forge/plugin-auto-unpack-natives": "^7.9.0",
+    "@electron-forge/plugin-fuses": "^7.9.0",
+    "@electron-forge/plugin-vite": "^7.9.0",
+    "@electron/fuses": "^1.8.0",
+    "@types/electron-squirrel-startup": "^1.0.2",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
+    "@types/node": "^20.19.17",
+    "@vitejs/plugin-vue": "^5.1.4",
+    "autoprefixer": "^10.4.20",
+    "electron": "38.1.2",
+    "eslint": "^8.57.1",
+    "eslint-plugin-import": "^2.32.0",
+    "eslint-plugin-vue": "^9.28.0",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.15",
+    "typescript": "~5.6.3",
+    "vite": "^5.4.20",
+    "vue-tsc": "^2.1.10"
+  },
+  "dependencies": {
+    "electron-squirrel-startup": "^1.0.1",
+    "vue": "^3.5.13",
+    "pinia": "^2.2.6",
+    "better-sqlite3": "^11.6.0",
+    "axios": "^1.7.9",
+    "marked": "^14.1.3",
+    "@codemirror/lang-markdown": "^6.3.3",
+    "@codemirror/theme-one-dark": "^6.1.2",
+    "@codemirror/view": "^6.38.3",
+    "@codemirror/state": "^6.4.4",
+    "@codemirror/commands": "^6.7.3",
+    "date-fns": "^4.1.0"
+  }
+}
