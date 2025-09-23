@@ -1,151 +1,142 @@
 import { ref, reactive } from 'vue';
+import { AppSettings, defaultSettings } from '../types/settings';
 
-export interface AppSettings {
-  workspacePath: string;
-  theme: 'light' | 'dark' | 'auto';
-  editor: {
-    fontSize: number;
-    fontFamily: string;
-    tabSize: number;
-    wordWrap: boolean;
-    lineNumbers: boolean;
-  };
-  ai: {
-    provider: string;
-    apiKey: string;
-    apiSecret: string;
-    model: string;
-    baseUrl: string;
-  };
-  review: {
-    intervals: number[];
-    reminderTime: string;
-    autoReview: boolean;
-  };
-  lastUpdated: string;
-}
+// 设置状态
+const settings = ref<AppSettings>(defaultSettings);
+const isLoaded = ref(false);
 
-const defaultSettings: AppSettings = {
-  workspacePath: '',
-  theme: 'auto',
-  editor: {
-    fontSize: 14,
-    fontFamily: 'Consolas, "Courier New", monospace',
-    tabSize: 2,
-    wordWrap: true,
-    lineNumbers: true
-  },
-  ai: {
-    provider: 'alibaba',
-    apiKey: '',
-    apiSecret: '',
-    model: 'qwen-turbo',
-    baseUrl: ''
-  },
-  review: {
-    intervals: [1, 3, 7, 15, 30],
-    reminderTime: '09:00',
-    autoReview: true
-  },
-  lastUpdated: new Date().toISOString()
-};
-
-// 全局设置状态
-export const settings = reactive<AppSettings>({ ...defaultSettings });
-
-// 设置服务类
-export class SettingsService {
-  private static instance: SettingsService;
-  
-  public static getInstance(): SettingsService {
-    if (!SettingsService.instance) {
-      SettingsService.instance = new SettingsService();
-    }
-    return SettingsService.instance;
-  }
-
-  // 加载所有设置
-  async loadSettings(): Promise<void> {
+// 设置服务
+export const settingsService = {
+  // 加载设置
+  async loadSettings(): Promise<AppSettings> {
     try {
-      const allSettings = await window.electronAPI.getAllSettings();
-      Object.assign(settings, { ...defaultSettings, ...allSettings });
+      const savedSettings = await window.electronAPI.loadSettings();
+      if (savedSettings) {
+        // 合并默认设置和保存的设置，确保所有字段都存在
+        settings.value = { ...defaultSettings, ...savedSettings };
+      } else {
+        settings.value = defaultSettings;
+      }
+      isLoaded.value = true;
+      return settings.value;
     } catch (error) {
-      console.error('Error loading settings:', error);
+      console.error('Failed to load settings:', error);
+      settings.value = defaultSettings;
+      isLoaded.value = true;
+      return settings.value;
     }
-  }
+  },
 
-  // 保存所有设置
-  async saveSettings(): Promise<boolean> {
+  // 保存设置
+  async saveSettings(newSettings: Partial<AppSettings>): Promise<boolean> {
     try {
-      settings.lastUpdated = new Date().toISOString();
-      const success = await window.electronAPI.updateSetting('all', settings);
+      // 合并当前设置和新设置
+      const mergedSettings = { ...settings.value, ...newSettings };
+      settings.value = mergedSettings;
+      
+      // 创建可序列化的设置对象（移除函数和不可序列化的内容）
+      const serializableSettings = JSON.parse(JSON.stringify(mergedSettings));
+      
+      // 保存到本地存储
+      const success = await window.electronAPI.saveSettings(serializableSettings);
+      if (success) {
+        // 应用设置
+        await this.applySettings(mergedSettings);
+        console.log('Settings saved and applied successfully');
+      } else {
+        console.error('Failed to save settings to storage');
+      }
       return success;
     } catch (error) {
-      console.error('Error saving settings:', error);
+      console.error('Failed to save settings:', error);
       return false;
     }
-  }
+  },
 
-  // 更新单个设置
-  async updateSetting<K extends keyof AppSettings>(
-    key: K, 
-    value: AppSettings[K]
-  ): Promise<boolean> {
-    try {
-      settings[key] = value;
-      settings.lastUpdated = new Date().toISOString();
-      const success = await window.electronAPI.updateSetting(key, value);
-      return success;
-    } catch (error) {
-      console.error('Error updating setting:', error);
-      return false;
-    }
-  }
+  // 自动保存设置（立即保存）
+  autoSaveSettings: (() => {
+    return async (newSettings: Partial<AppSettings>) => {
+      try {
+        // 创建可序列化的设置对象
+        const serializableSettings = JSON.parse(JSON.stringify(newSettings));
+        await settingsService.saveSettings(serializableSettings);
+      } catch (error) {
+        console.error('Auto-save failed:', error);
+      }
+    };
+  })(),
 
-  // 获取单个设置
-  async getSetting<K extends keyof AppSettings>(key: K): Promise<AppSettings[K]> {
+  // 应用设置
+  async applySettings(newSettings: AppSettings): Promise<void> {
     try {
-      const value = await window.electronAPI.getSetting(key);
-      return value !== undefined ? value : defaultSettings[key];
+      // 应用主题设置
+      if (newSettings.editor.theme === 'dark') {
+        document.documentElement.classList.add('dark');
+      } else if (newSettings.editor.theme === 'light') {
+        document.documentElement.classList.remove('dark');
+      } else if (newSettings.editor.theme === 'auto') {
+        // 根据系统主题自动切换
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (prefersDark) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      }
+
+      // 应用编辑器设置
+      const editorSettings = newSettings.editor;
+      const editorStyle = document.documentElement.style;
+      editorStyle.setProperty('--editor-font-size', `${editorSettings.fontSize}px`);
+      editorStyle.setProperty('--editor-font-family', editorSettings.fontFamily);
+      editorStyle.setProperty('--editor-line-height', editorSettings.lineHeight.toString());
+
+      // 应用主题颜色
+      const themeSettings = newSettings.theme;
+      editorStyle.setProperty('--primary-color', themeSettings.primaryColor);
+      editorStyle.setProperty('--accent-color', themeSettings.accentColor);
+
+      // 应用侧边栏宽度
+      const appStore = await import('../stores/app');
+      appStore.useAppStore().updateLeftPanelWidth(themeSettings.sidebarWidth);
+      appStore.useAppStore().updateRightPanelWidth(themeSettings.rightSidebarWidth);
+
+      // 应用动画速度
+      const animationSpeed = themeSettings.animationSpeed;
+      const speedMap = { slow: '0.5s', normal: '0.3s', fast: '0.1s' };
+      editorStyle.setProperty('--animation-duration', speedMap[animationSpeed]);
+
+      console.log('Settings applied successfully');
     } catch (error) {
-      console.error('Error getting setting:', error);
-      return defaultSettings[key];
+      console.error('Failed to apply settings:', error);
     }
-  }
+  },
+
+  // 获取当前设置
+  getSettings(): AppSettings {
+    return settings.value;
+  },
 
   // 重置设置
   async resetSettings(): Promise<boolean> {
     try {
-      Object.assign(settings, defaultSettings);
-      return await this.saveSettings();
+      settings.value = defaultSettings;
+      const success = await window.electronAPI.saveSettings(defaultSettings);
+      if (success) {
+        await this.applySettings(defaultSettings);
+      }
+      return success;
     } catch (error) {
-      console.error('Error resetting settings:', error);
+      console.error('Failed to reset settings:', error);
       return false;
     }
-  }
+  },
 
-  // 导出设置
-  exportSettings(): string {
-    return JSON.stringify(settings, null, 2);
+  // 检查设置是否已加载
+  isSettingsLoaded(): boolean {
+    return isLoaded.value;
   }
+};
 
-  // 导入设置
-  async importSettings(settingsJson: string): Promise<boolean> {
-    try {
-      const importedSettings = JSON.parse(settingsJson);
-      Object.assign(settings, importedSettings);
-      return await this.saveSettings();
-    } catch (error) {
-      console.error('Error importing settings:', error);
-      return false;
-    }
-  }
-
-  // 获取设置状态
-  getState() {
-    return settings;
-  }
-}
-
-// 导出单例实例
-export const settingsService = SettingsService.getInstance();
+// 导出设置状态，供组件使用
+export { settings };

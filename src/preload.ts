@@ -34,6 +34,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAllSettings: () => ipcRenderer.invoke('get-all-settings'),
   updateSetting: (key: string, value: any) => ipcRenderer.invoke('update-setting', key, value),
   getSetting: (key: string) => ipcRenderer.invoke('get-setting', key),
+  loadSettings: () => ipcRenderer.invoke('load-settings'),
+  saveSettings: (settings: any) => ipcRenderer.invoke('save-settings', settings),
 
   // AI operations (placeholder for future implementation)
   aiSemanticSearch: (query: string) => ipcRenderer.invoke('ai-semantic-search', query),

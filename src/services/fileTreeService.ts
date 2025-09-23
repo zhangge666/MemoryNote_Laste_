@@ -33,7 +33,8 @@ export class FileTreeService {
     try {
       // 先加载设置
       await settingsService.loadSettings();
-      const workspacePath = settingsService.getState().workspacePath;
+      const settings = settingsService.getSettings();
+      const workspacePath = settings.general?.workspacePath || await window.electronAPI.getWorkspacePath();
       console.log('FileTreeService - Workspace path:', workspacePath);
       
       if (!workspacePath) {
@@ -150,7 +151,8 @@ export class FileTreeService {
   // 创建新文件（内联编辑模式）
   async createFileInline(parentPath: string = ''): Promise<string> {
     try {
-      const workspacePath = settingsService.getState().workspacePath;
+      const settings = settingsService.getSettings();
+      const workspacePath = settings.general?.workspacePath || await window.electronAPI.getWorkspacePath();
       console.log('Workspace path:', workspacePath);
       
       if (!workspacePath) {
@@ -211,7 +213,8 @@ export class FileTreeService {
   // 创建新文件夹（内联编辑模式）
   async createFolderInline(parentPath: string = ''): Promise<string> {
     try {
-      const workspacePath = settingsService.getState().workspacePath;
+      const settings = settingsService.getSettings();
+      const workspacePath = settings.general?.workspacePath || await window.electronAPI.getWorkspacePath();
       console.log('Workspace path:', workspacePath);
       
       if (!workspacePath) {
@@ -411,7 +414,8 @@ export class FileTreeService {
 
       // 找到目标父节点
       const targetParent = targetParentId ? this.findNode(targetParentId) : null;
-      const targetParentPath = targetParent ? targetParent.path : settingsService.getState().workspacePath;
+      const settings = settingsService.getSettings();
+      const targetParentPath = targetParent ? targetParent.path : settings.general?.workspacePath || await window.electronAPI.getWorkspacePath();
       
       if (!targetParentPath) {
         console.error('Target parent path not found');

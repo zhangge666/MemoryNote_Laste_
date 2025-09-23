@@ -30,6 +30,8 @@ export interface ElectronAPI {
   getAllSettings: () => Promise<any>;
   updateSetting: (key: string, value: any) => Promise<boolean>;
   getSetting: (key: string) => Promise<any>;
+  loadSettings: () => Promise<any>;
+  saveSettings: (settings: any) => Promise<boolean>;
   
   // AI操作
   aiSemanticSearch: (query: string) => Promise<any>;

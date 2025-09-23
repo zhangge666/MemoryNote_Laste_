@@ -31,6 +31,60 @@
       <div v-if="activeSection === 'general'" class="p-6">
         <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-6">基础设置</h3>
         
+        <!-- 基础设置 -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6 mb-6">
+          <h4 class="text-lg font-medium text-gray-900 dark:text-white mb-4">基础设置</h4>
+          
+          <div class="space-y-4">
+            <!-- 语言设置 -->
+            <SelectBox
+              v-model="localSettings.general.language"
+              label="界面语言"
+              :options="languageOptions"
+              @change="handleSettingChange"
+            />
+
+            <!-- 自动保存设置 -->
+            <ToggleSwitch
+              v-model="localSettings.general.autoSave"
+              label="启用自动保存"
+              description="自动保存编辑的文档"
+              @change="handleSettingChange"
+            />
+
+            <!-- 自动保存间隔 -->
+            <div v-if="localSettings.general.autoSave">
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                自动保存间隔（秒）
+              </label>
+              <input
+                type="number"
+                v-model="localSettings.general.autoSaveInterval"
+                @change="handleSettingChange"
+                min="10"
+                max="300"
+                class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+              />
+            </div>
+
+            <!-- 启动行为 -->
+            <SelectBox
+              v-model="localSettings.general.startupBehavior"
+              label="启动行为"
+              :options="startupBehaviorOptions"
+              @change="handleSettingChange"
+            />
+
+            <!-- 主题设置 -->
+            <SelectBox
+              v-model="localSettings.editor.theme"
+              label="应用主题"
+              :options="themeOptions"
+              @change="handleSettingChange"
+            />
+          </div>
+        </div>
+
         <!-- 工作区设置 -->
         <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
           <h4 class="text-lg font-medium text-gray-900 dark:text-white mb-4">工作区设置</h4>
@@ -100,6 +154,248 @@
         </div>
       </div>
 
+      <!-- 编辑器设置 -->
+      <div v-else-if="activeSection === 'editor'" class="p-6">
+        <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-6">编辑器设置</h3>
+        
+        <div class="space-y-6">
+
+          <!-- 字体设置 -->
+          <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+            <h4 class="text-lg font-medium text-gray-900 dark:text-white mb-4">字体设置</h4>
+            
+            <div class="space-y-4">
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    字体大小
+                  </label>
+                  <input
+                    type="number"
+                    v-model="localSettings.editor.fontSize"
+                    @change="handleSettingChange"
+                    min="10"
+                    max="24"
+                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    行高
+                  </label>
+                  <input
+                    type="number"
+                    v-model="localSettings.editor.lineHeight"
+                    @change="handleSettingChange"
+                    min="1"
+                    max="3"
+                    step="0.1"
+                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                  />
+                </div>
+              </div>
+              
+              <SelectBox
+                v-model="localSettings.editor.fontFamily"
+                label="字体族"
+                :options="fontFamilyOptions"
+                @change="handleSettingChange"
+              />
+            </div>
+          </div>
+
+          <!-- 编辑器预览 -->
+          <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+            <h4 class="text-lg font-medium text-gray-900 dark:text-white mb-4">编辑器预览</h4>
+            
+            <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 border border-gray-200 dark:border-gray-700">
+              <div 
+                class="editor-preview"
+                :style="{
+                  fontFamily: localSettings.editor.fontFamily,
+                  fontSize: localSettings.editor.fontSize + 'px',
+                  lineHeight: localSettings.editor.lineHeight
+                }"
+              >
+                <div class="text-sm text-gray-600 dark:text-gray-400 mb-3">// Markdown 编辑器预览效果</div>
+                
+                <!-- Markdown 预览内容 -->
+                <div class="space-y-2">
+                  <!-- 标题 -->
+                  <div class="text-lg font-bold text-gray-900 dark:text-white">
+                    # 这是一个标题
+                  </div>
+                  
+                  <!-- 段落 -->
+                  <div class="text-sm text-gray-700 dark:text-gray-300">
+                    这是一个普通的段落文本，用于展示字体效果。
+                  </div>
+                  
+                  <!-- 列表 -->
+                  <div class="text-sm text-gray-700 dark:text-gray-300">
+                    <div>• 列表项 1</div>
+                    <div>• 列表项 2</div>
+                    <div>• 列表项 3</div>
+                  </div>
+                  
+                  <!-- 代码块 -->
+                  <div class="bg-gray-100 dark:bg-gray-800 rounded p-2 text-xs font-mono text-gray-800 dark:text-gray-200">
+                    <div>```javascript</div>
+                    <div>console.log('Hello, World!');</div>
+                    <div>```</div>
+                  </div>
+                  
+                  <!-- 引用 -->
+                  <div class="border-l-4 border-blue-500 pl-3 text-sm text-gray-600 dark:text-gray-400 italic">
+                    > 这是一个引用块
+                  </div>
+                  
+                  <!-- 链接 -->
+                  <div class="text-sm">
+                    <span class="text-gray-700 dark:text-gray-300">这是一个</span>
+                    <span class="text-blue-600 dark:text-blue-400 underline">链接</span>
+                    <span class="text-gray-700 dark:text-gray-300">示例</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 编辑器行为 -->
+          <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+            <h4 class="text-lg font-medium text-gray-900 dark:text-white mb-4">编辑器行为</h4>
+            
+            <div class="space-y-4">
+              <div class="grid grid-cols-2 gap-4">
+                <ToggleSwitch
+                  v-model="localSettings.editor.wordWrap"
+                  label="自动换行"
+                  description="长行自动换行显示"
+                  @change="handleSettingChange"
+                />
+                
+                <ToggleSwitch
+                  v-model="localSettings.editor.showLineNumbers"
+                  label="显示行号"
+                  description="在编辑器左侧显示行号"
+                  @change="handleSettingChange"
+                />
+                
+                <ToggleSwitch
+                  v-model="localSettings.editor.showMinimap"
+                  label="显示小地图"
+                  description="在编辑器右侧显示代码小地图"
+                  @change="handleSettingChange"
+                />
+                
+                <ToggleSwitch
+                  v-model="localSettings.editor.autoCloseBrackets"
+                  label="自动关闭括号"
+                  description="输入时自动关闭括号"
+                  @change="handleSettingChange"
+                />
+              </div>
+              
+              <div>
+                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Tab 大小
+                </label>
+                <input
+                  type="number"
+                  v-model="localSettings.editor.tabSize"
+                  @change="handleSettingChange"
+                  min="2"
+                  max="8"
+                  class="w-32 px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 主题设置 -->
+      <div v-else-if="activeSection === 'theme'" class="p-6">
+        <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-6">主题设置</h3>
+        
+        <div class="space-y-6">
+          <!-- 颜色设置 -->
+          <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+            <h4 class="text-lg font-medium text-gray-900 dark:text-white mb-4">颜色设置</h4>
+            
+            <div class="space-y-4">
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    主色调
+                  </label>
+                  <input
+                    type="color"
+                    v-model="localSettings.theme.primaryColor"
+                    @change="handleSettingChange"
+                    class="w-full h-10 border border-gray-300 dark:border-gray-600 rounded-md"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    强调色
+                  </label>
+                  <input
+                    type="color"
+                    v-model="localSettings.theme.accentColor"
+                    @change="handleSettingChange"
+                    class="w-full h-10 border border-gray-300 dark:border-gray-600 rounded-md"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 布局设置 -->
+          <div class="bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 p-6">
+            <h4 class="text-lg font-medium text-gray-900 dark:text-white mb-4">布局设置</h4>
+            
+            <div class="space-y-4">
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    左侧栏宽度
+                  </label>
+                  <input
+                    type="number"
+                    v-model="localSettings.theme.sidebarWidth"
+                    @change="handleSettingChange"
+                    min="200"
+                    max="400"
+                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                  />
+                </div>
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    右侧栏宽度
+                  </label>
+                  <input
+                    type="number"
+                    v-model="localSettings.theme.rightSidebarWidth"
+                    @change="handleSettingChange"
+                    min="200"
+                    max="400"
+                    class="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md bg-white dark:bg-gray-700 text-gray-900 dark:text-white text-sm"
+                  />
+                </div>
+              </div>
+              
+              <SelectBox
+                v-model="localSettings.theme.animationSpeed"
+                label="动画速度"
+                :options="animationSpeedOptions"
+                @change="handleSettingChange"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- 其他设置页面 -->
       <div v-else class="p-6">
         <h3 class="text-xl font-semibold text-gray-900 dark:text-white mb-6">
@@ -114,9 +410,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, reactive } from 'vue';
 import { useAppStore } from '../../stores/app';
 import { settingsService, settings } from '../../services/settingsService';
+import { AppSettings, defaultSettings } from '../../types/settings';
+import ToggleSwitch from '../common/ToggleSwitch.vue';
+import SelectBox from '../common/SelectBox.vue';
 
 const appStore = useAppStore();
 
@@ -165,10 +464,67 @@ const workspaceStats = ref({
   totalSize: 0
 });
 
+// 本地设置状态
+const localSettings = reactive<AppSettings>({ ...defaultSettings });
+
+// 选项数据
+const languageOptions = [
+  { value: 'zh-CN', label: '简体中文' },
+  { value: 'en-US', label: 'English' }
+];
+
+const startupBehaviorOptions = [
+  { value: 'restore', label: '恢复上次会话' },
+  { value: 'new', label: '新建空白文档' },
+  { value: 'last', label: '打开最后编辑的文档' }
+];
+
+const themeOptions = [
+  { value: 'light', label: '浅色主题' },
+  { value: 'dark', label: '深色主题' },
+  { value: 'auto', label: '跟随系统' }
+];
+
+const fontFamilyOptions = [
+  { value: 'JetBrains Mono, Consolas, monospace', label: 'JetBrains Mono' },
+  { value: 'Fira Code, Consolas, monospace', label: 'Fira Code' },
+  { value: 'Source Code Pro, Consolas, monospace', label: 'Source Code Pro' },
+  { value: 'Consolas, monospace', label: 'Consolas' },
+  { value: 'Monaco, Consolas, monospace', label: 'Monaco' }
+];
+
+const animationSpeedOptions = [
+  { value: 'slow', label: '慢' },
+  { value: 'normal', label: '正常' },
+  { value: 'fast', label: '快' }
+];
+
 // 获取当前设置项名称
 const getCurrentSectionName = () => {
   const item = settingsItems.find(item => item.id === activeSection.value);
   return item?.name || '设置';
+};
+
+// 保存设置
+const saveSettings = async () => {
+  try {
+    const success = await settingsService.saveSettings(localSettings);
+    if (success) {
+      console.log('Settings saved successfully');
+    } else {
+      console.error('Failed to save settings');
+      alert('保存设置失败，请重试');
+    }
+  } catch (error) {
+    console.error('Error saving settings:', error);
+    alert('保存设置时发生错误');
+  }
+};
+
+// 处理设置变化（自动保存）
+const handleSettingChange = () => {
+  // 使用防抖的自动保存
+  settingsService.autoSaveSettings(localSettings);
 };
 
 // 打开工作区选择对话框
@@ -259,8 +615,23 @@ const formatFileSize = (bytes: number) => {
 onMounted(async () => {
   try {
     // 加载设置
-    await settingsService.loadSettings();
-    currentWorkspacePath.value = settings.workspacePath || await appStore.getWorkspacePath();
+    const loadedSettings = await settingsService.loadSettings();
+    
+    // 更新本地设置状态（深度合并）
+    if (loadedSettings) {
+      Object.keys(loadedSettings).forEach(key => {
+        if (localSettings[key as keyof AppSettings] && typeof localSettings[key as keyof AppSettings] === 'object') {
+          Object.assign(localSettings[key as keyof AppSettings], loadedSettings[key as keyof AppSettings]);
+        } else {
+          (localSettings as any)[key] = loadedSettings[key as keyof AppSettings];
+        }
+      });
+    }
+    
+    // 获取工作区路径
+    currentWorkspacePath.value = await appStore.getWorkspacePath();
+    
+    // 刷新工作区统计
     await refreshWorkspaceStats();
   } catch (error) {
     console.error('Error initializing settings:', error);

@@ -392,6 +392,31 @@ ipcMain.handle('get-setting', (_, key: string) => {
   return settings[key];
 });
 
+// 新增：加载设置
+ipcMain.handle('load-settings', () => {
+  try {
+    if (fs.existsSync(settingsPath)) {
+      const settingsData = fs.readFileSync(settingsPath, 'utf-8');
+      return JSON.parse(settingsData);
+    }
+    return {};
+  } catch (error) {
+    console.error('Error loading settings:', error);
+    return {};
+  }
+});
+
+// 新增：保存设置
+ipcMain.handle('save-settings', (_, settings: any) => {
+  try {
+    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+    return true;
+  } catch (error) {
+    console.error('Error saving settings:', error);
+    return false;
+  }
+});
+
 ipcMain.handle('read-file', async (_, filePath: string) => {
   try {
     const fullPath = path.isAbsolute(filePath) ? filePath : path.join(workspacePath, filePath);
