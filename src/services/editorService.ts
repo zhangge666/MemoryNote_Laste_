@@ -47,7 +47,8 @@ class EditorService implements EditorInstance {
           if (update.docChanged && !this.isUpdatingFromManager) {
             const newContent = update.state.doc.toString();
             this.state.content = newContent;
-            this.state.isDirty = true;
+            // 不在这里设置isDirty，让fileContentManager来决定
+            // this.state.isDirty = true;
             
             // 通知文件内容管理器内容变化
             if (this.state.filePath) {

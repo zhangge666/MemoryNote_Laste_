@@ -106,9 +106,9 @@ const loadFile = async (filePath: string) => {
     isLoading.value = true;
     const success = await editorService.loadFile(filePath);
     if (success) {
-      // 更新标签页状态
+      // 更新标签页状态，使用editorService的脏状态
       if (props.tabId) {
-        updateTabState(editorService.getContent(), false);
+        updateTabState(editorService.getContent(), editorService.state.isDirty);
       }
     }
   } catch (error) {
