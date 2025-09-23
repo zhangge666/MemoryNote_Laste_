@@ -16,6 +16,7 @@ export interface ElectronAPI {
   setWorkspacePath: (path: string) => Promise<boolean>;
   selectWorkspaceFolder: () => Promise<string | null>;
   openWorkspaceInExplorer: () => Promise<boolean>;
+  showFileInExplorer: (filePath: string) => Promise<boolean>;
   readFile: (filePath: string) => Promise<string>;
   writeFile: (filePath: string, content: string) => Promise<boolean>;
   createDirectory: (dirPath: string) => Promise<boolean>;

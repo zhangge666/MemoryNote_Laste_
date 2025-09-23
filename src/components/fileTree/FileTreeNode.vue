@@ -18,6 +18,7 @@
       @dragleave="handleDragLeave"
       @drop="handleDrop"
       @dragend="handleDragEnd"
+      @contextmenu="handleContextMenu"
     >
       <!-- 展开/折叠图标 -->
       <div class="flex items-center mr-1">
@@ -138,12 +139,22 @@
         @drop="$emit('drop', $event, $event)"
       />
     </div>
+
+    <!-- 右键菜单 -->
+    <ContextMenu
+      :visible="contextMenuVisible"
+      :position="contextMenuPosition"
+      :items="contextMenuItems"
+      @close="contextMenuVisible = false"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch, nextTick } from 'vue';
 import type { FileTreeNode } from '../../types/fileTree';
+import ContextMenu from '../common/ContextMenu.vue';
+import type { ContextMenuItem } from '../common/ContextMenu.vue';
 
 interface Props {
   node: FileTreeNode;
@@ -360,6 +371,150 @@ const handleDragEnd = (event: DragEvent) => {
   const target = event.currentTarget as HTMLElement;
   if (target) {
     target.classList.remove('dragging', 'drag-over', 'drag-enter');
+  }
+};
+
+// 右键菜单相关
+const contextMenuVisible = ref(false);
+const contextMenuPosition = ref({ x: 0, y: 0 });
+
+// 右键菜单处理
+const handleContextMenu = (event: MouseEvent) => {
+  event.preventDefault();
+  event.stopPropagation();
+  
+  contextMenuPosition.value = {
+    x: event.clientX,
+    y: event.clientY
+  };
+  contextMenuVisible.value = true;
+};
+
+// 右键菜单项
+const contextMenuItems = computed((): ContextMenuItem[] => {
+  const items: ContextMenuItem[] = [];
+  
+  if (props.node.type === 'folder') {
+    // 文件夹菜单
+    items.push(
+      {
+        label: '新建文件',
+        icon: '📄',
+        action: () => createNewFile()
+      },
+      {
+        label: '新建文件夹',
+        icon: '📁',
+        action: () => createNewFolder()
+      },
+      { separator: true },
+      {
+        label: '重命名',
+        icon: '✏️',
+        shortcut: 'F2',
+        action: () => startEdit()
+      },
+      {
+        label: '删除',
+        icon: '🗑️',
+        danger: true,
+        action: () => deleteNode()
+      },
+      { separator: true },
+      {
+        label: '复制路径',
+        icon: '📋',
+        action: () => copyPath()
+      },
+      {
+        label: '在文件管理器中显示',
+        icon: '📂',
+        action: () => showInExplorer()
+      }
+    );
+  } else {
+    // 文件菜单
+    items.push(
+      {
+        label: '打开',
+        icon: '👁️',
+        shortcut: 'Enter',
+        action: () => openFile()
+      },
+      { separator: true },
+      {
+        label: '重命名',
+        icon: '✏️',
+        shortcut: 'F2',
+        action: () => startEdit()
+      },
+      {
+        label: '删除',
+        icon: '🗑️',
+        danger: true,
+        action: () => deleteNode()
+      },
+      { separator: true },
+      {
+        label: '复制路径',
+        icon: '📋',
+        action: () => copyPath()
+      },
+      {
+        label: '在文件管理器中显示',
+        icon: '📂',
+        action: () => showInExplorer()
+      }
+    );
+  }
+  
+  return items;
+});
+
+// 菜单项动作
+const createNewFile = () => {
+  // 这里需要实现新建文件逻辑
+  console.log('创建新文件');
+};
+
+const createNewFolder = () => {
+  // 这里需要实现新建文件夹逻辑
+  console.log('创建新文件夹');
+};
+
+const openFile = () => {
+  emit('open', props.node.id);
+};
+
+const startEdit = () => {
+  emit('start-edit', props.node.id);
+};
+
+const deleteNode = () => {
+  if (confirm(`确定要删除 "${props.node.name}" 吗？`)) {
+    emit('delete', props.node.id);
+  }
+};
+
+const copyPath = async () => {
+  try {
+    await navigator.clipboard.writeText(props.node.path);
+    console.log('路径已复制到剪贴板');
+  } catch (error) {
+    console.error('复制路径失败:', error);
+  }
+};
+
+const showInExplorer = async () => {
+  try {
+    const success = await window.electronAPI.showFileInExplorer(props.node.path);
+    if (success) {
+      console.log('文件已在文件管理器中显示:', props.node.path);
+    } else {
+      console.error('无法在文件管理器中显示文件');
+    }
+  } catch (error) {
+    console.error('显示文件失败:', error);
   }
 };
 </script>

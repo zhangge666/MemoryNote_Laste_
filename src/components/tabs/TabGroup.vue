@@ -187,6 +187,14 @@
       @dontSave="handleDontSaveAndClose"
       @cancel="handleCancelClose"
     />
+
+    <!-- 标签右键菜单 -->
+    <ContextMenu
+      :visible="tabContextMenuVisible"
+      :position="tabContextMenuPosition"
+      :items="tabContextMenuItems"
+      @close="tabContextMenuVisible = false"
+    />
   </div>
 </template>
 
@@ -196,6 +204,8 @@ import { useTabGroupsStore } from '@/stores/tabGroups';
 import { useAppStore } from '@/stores/app';
 import { TabGroup as TabGroupType } from '@/types/tabGroup';
 import SaveConfirmDialog from '@/components/common/SaveConfirmDialog.vue';
+import ContextMenu from '@/components/common/ContextMenu.vue';
+import type { ContextMenuItem } from '@/components/common/ContextMenu.vue';
 
 // 递归组件声明
 const TabGroup = defineAsyncComponent(() => import('./TabGroup.vue'));
@@ -597,9 +607,198 @@ const handleDropToContent = (event: DragEvent) => {
   }
 };
 
+// 标签右键菜单相关
+const tabContextMenuVisible = ref(false);
+const tabContextMenuPosition = ref({ x: 0, y: 0 });
+const currentContextTab = ref<any>(null);
+
 const handleTabContextMenu = (tab: any, event: MouseEvent) => {
-  // TODO: 实现右键菜单
-  console.log('Tab context menu:', tab, event);
+  event.preventDefault();
+  event.stopPropagation();
+  
+  currentContextTab.value = tab;
+  tabContextMenuPosition.value = {
+    x: event.clientX,
+    y: event.clientY
+  };
+  tabContextMenuVisible.value = true;
+};
+
+// 标签右键菜单项
+const tabContextMenuItems = computed((): ContextMenuItem[] => {
+  if (!currentContextTab.value) return [];
+  
+  const tab = currentContextTab.value;
+  const items: ContextMenuItem[] = [];
+  
+  // 基础操作
+  items.push(
+    {
+      label: '关闭',
+      icon: '❌',
+      shortcut: 'Ctrl+W',
+      action: () => closeTab(tab.id)
+    }
+  );
+  
+  // 如果有多个标签页，显示关闭其他选项
+  if (props.group.tabs.length > 1) {
+    items.push(
+      {
+        label: '关闭其他',
+        icon: '🔒',
+        action: () => closeOtherTabs(tab.id)
+      },
+      {
+        label: '关闭所有',
+        icon: '🗑️',
+        danger: true,
+        action: () => closeAllTabs()
+      }
+    );
+  }
+  
+  items.push({ separator: true });
+  
+  // 复制相关
+  if (tab.type === 'editor' && tab.filePath) {
+    items.push(
+      {
+        label: '复制文件路径',
+        icon: '📋',
+        action: () => copyFilePath(tab.filePath)
+      },
+      {
+        label: '复制文件名',
+        icon: '📄',
+        action: () => copyFileName(tab.title)
+      }
+    );
+  }
+  
+  // 标签页操作
+  items.push(
+    {
+      label: '复制标签页',
+      icon: '📋',
+      action: () => duplicateTab(tab)
+    }
+  );
+  
+  // 如果是编辑器标签页，添加更多选项
+  if (tab.type === 'editor') {
+    items.push({ separator: true });
+    items.push(
+      {
+        label: '向下拆分',
+        icon: '⬇️',
+        action: () => splitTab(tab, 'vertical')
+      },
+      {
+        label: '向右拆分',
+        icon: '➡️',
+        action: () => splitTab(tab, 'horizontal')
+      },
+      {
+        label: '在文件管理器中显示',
+        icon: '📂',
+        action: () => showInExplorer(tab.filePath)
+      }
+    );
+  }
+  
+  return items;
+});
+
+// 菜单项动作
+const closeTab = (tabId: string) => {
+  tabGroupsStore.closeTab(tabId, props.group.id);
+};
+
+const closeOtherTabs = (keepTabId: string) => {
+  const otherTabs = props.group.tabs.filter(tab => tab.id !== keepTabId);
+  otherTabs.forEach(tab => {
+    if (tab.isDirty) {
+      // 如果有未保存的更改，需要确认
+      pendingCloseTab.value = tab;
+      showSaveDialog.value = true;
+    } else {
+      tabGroupsStore.closeTab(tab.id, props.group.id);
+    }
+  });
+};
+
+const closeAllTabs = () => {
+  const dirtyTabs = props.group.tabs.filter(tab => tab.isDirty);
+  if (dirtyTabs.length > 0) {
+    // 如果有未保存的更改，需要确认
+    pendingCloseTab.value = dirtyTabs[0];
+    showSaveDialog.value = true;
+  } else {
+    // 关闭所有标签页
+    props.group.tabs.forEach(tab => {
+      tabGroupsStore.closeTab(tab.id, props.group.id);
+    });
+  }
+};
+
+const copyFilePath = async (filePath: string) => {
+  try {
+    await navigator.clipboard.writeText(filePath);
+    console.log('文件路径已复制到剪贴板');
+  } catch (error) {
+    console.error('复制文件路径失败:', error);
+  }
+};
+
+const copyFileName = async (fileName: string) => {
+  try {
+    await navigator.clipboard.writeText(fileName);
+    console.log('文件名已复制到剪贴板');
+  } catch (error) {
+    console.error('复制文件名失败:', error);
+  }
+};
+
+const duplicateTab = (tab: any) => {
+  // 复制标签页到当前组
+  tabGroupsStore.addTabToGroup({
+    type: tab.type,
+    title: tab.title + ' (副本)',
+    filePath: tab.filePath,
+    content: tab.content
+  }, props.group.id);
+};
+
+const splitTab = (tab: any, direction: 'vertical' | 'horizontal') => {
+  console.log('Split tab called:', { tab: tab.id, direction, groupId: props.group.id });
+  
+  // 直接拆分当前组，splitGroup 会自动处理标签页的移动和布局
+  const newGroupId = tabGroupsStore.splitGroup(props.group.id, {
+    direction: direction,
+    ratio: 0.5
+  });
+  
+  console.log('Split result - new group ID:', newGroupId);
+  
+  if (newGroupId) {
+    console.log('Split successful, new group created');
+  } else {
+    console.log('Split failed');
+  }
+};
+
+const showInExplorer = async (filePath: string) => {
+  try {
+    const success = await window.electronAPI.showFileInExplorer(filePath);
+    if (success) {
+      console.log('文件已在文件管理器中显示:', filePath);
+    } else {
+      console.error('无法在文件管理器中显示文件');
+    }
+  } catch (error) {
+    console.error('显示文件失败:', error);
+  }
 };
 
 // 标签条专用的拖拽处理函数

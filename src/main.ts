@@ -378,6 +378,24 @@ ipcMain.handle('open-workspace-in-explorer', async () => {
   }
 });
 
+// 在文件管理器中显示特定文件
+ipcMain.handle('show-file-in-explorer', async (_, filePath: string) => {
+  try {
+    const { shell } = require('electron');
+    const path = require('path');
+    
+    // 获取文件所在的目录
+    const dirPath = path.dirname(filePath);
+    
+    // 在文件管理器中打开目录并选中文件
+    shell.showItemInFolder(filePath);
+    return true;
+  } catch (error) {
+    console.error('Error showing file in explorer:', error);
+    return false;
+  }
+});
+
 // Settings IPC handlers
 ipcMain.handle('get-all-settings', () => {
   return getAllSettings();

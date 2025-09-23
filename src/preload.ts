@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setWorkspacePath: (path: string) => ipcRenderer.invoke('set-workspace-path', path),
   selectWorkspaceFolder: () => ipcRenderer.invoke('select-workspace-folder'),
   openWorkspaceInExplorer: () => ipcRenderer.invoke('open-workspace-in-explorer'),
+  showFileInExplorer: (filePath: string) => ipcRenderer.invoke('show-file-in-explorer', filePath),
   readFile: (filePath: string) => ipcRenderer.invoke('read-file', filePath),
   writeFile: (filePath: string, content: string) => ipcRenderer.invoke('write-file', filePath, content),
   createDirectory: (dirPath: string) => ipcRenderer.invoke('create-directory', dirPath),
