@@ -7,10 +7,14 @@
     <div 
       v-if="!group.children || group.children.length === 0"
       class="tab-header flex bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 h-10 min-h-10"
+      @dragover.prevent="handleTabHeaderDragOver"
+      @dragenter.prevent="handleTabHeaderDragEnter"
+      @dragleave="handleTabHeaderDragLeave"
+      @drop="handleTabHeaderDrop"
     >
       <!-- 标签页列表 -->
       <div 
-        class="flex-1 flex overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent"
+        class="flex-1 flex overflow-x-auto overflow-y-hidden scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent"
         @wheel="handleWheel"
       >
         <div
@@ -26,9 +30,10 @@
           ]"
           draggable="true"
           @dragstart="handleDragStart(tab, $event)"
-          @dragover.prevent="handleDragOver"
-          @dragenter.prevent="handleDragEnter"
-          @drop="handleDrop(tab, $event)"
+          @dragover.prevent="handleTabDragOver"
+          @dragenter.prevent="handleTabDragEnter"
+          @dragleave="handleTabDragLeave"
+          @drop="handleTabDrop(tab, $event)"
         >
           <!-- 文件类型图标 -->
           <div class="w-4 h-4 mr-2 flex-shrink-0">
@@ -91,7 +96,13 @@
     </div>
     
     <!-- 标签页内容区域 -->
-    <div class="tab-content flex-1 overflow-hidden">
+    <div 
+      class="tab-content flex-1 overflow-hidden"
+      @dragover.prevent="handleDragOver"
+      @dragenter.prevent="handleDragEnter"
+      @dragleave="handleDragLeave"
+      @drop="handleDropToContent"
+    >
       <!-- 如果有子组，递归渲染 -->
       <div 
         v-if="group.children && group.children.length > 0"
@@ -346,6 +357,8 @@ const handleWheel = (event: WheelEvent) => {
 };
 
 // 拖拽处理
+let dragTimeout: number | null = null;
+
 const handleDragStart = (tab: any, event: DragEvent) => {
   if (event.dataTransfer) {
     event.dataTransfer.setData('application/json', JSON.stringify({
@@ -358,25 +371,109 @@ const handleDragStart = (tab: any, event: DragEvent) => {
 
 const handleDragOver = (event: DragEvent) => {
   event.preventDefault();
+  event.stopPropagation();
   if (event.dataTransfer) {
     event.dataTransfer.dropEffect = 'move';
   }
+  
+  // 使用防抖来减少闪烁
+  if (dragTimeout) {
+    clearTimeout(dragTimeout);
+  }
+  
+  dragTimeout = window.setTimeout(() => {
+    // 为整个标签组添加拖拽效果
+    const tabGroup = event.currentTarget?.closest('.tab-group') as HTMLElement;
+    if (tabGroup && !tabGroup.classList.contains('drag-over')) {
+      tabGroup.classList.add('drag-over');
+    }
+  }, 10);
 };
 
 const handleDragEnter = (event: DragEvent) => {
   event.preventDefault();
+  event.stopPropagation();
+  
+  // 为整个标签组添加拖拽进入效果
+  const tabGroup = event.currentTarget?.closest('.tab-group') as HTMLElement;
+  if (tabGroup && !tabGroup.classList.contains('drag-enter')) {
+    tabGroup.classList.add('drag-enter');
+  }
+};
+
+const handleDragLeave = (event: DragEvent) => {
+  event.stopPropagation();
+  
+  // 清理超时
+  if (dragTimeout) {
+    clearTimeout(dragTimeout);
+    dragTimeout = null;
+  }
+  
+  // 清理整个标签组的拖拽效果
+  const tabGroup = event.currentTarget?.closest('.tab-group') as HTMLElement;
+  if (tabGroup) {
+    tabGroup.classList.remove('drag-over', 'drag-enter');
+  }
 };
 
 const handleDrop = (targetTab: any, event: DragEvent) => {
   event.preventDefault();
+  event.stopPropagation();
+  
+  // 清理超时
+  if (dragTimeout) {
+    clearTimeout(dragTimeout);
+    dragTimeout = null;
+  }
+  
+  // 清理整个标签组的拖拽效果
+  const tabGroup = event.currentTarget?.closest('.tab-group') as HTMLElement;
+  if (tabGroup) {
+    tabGroup.classList.remove('drag-over', 'drag-enter');
+  }
   
   if (event.dataTransfer) {
     try {
       const data = JSON.parse(event.dataTransfer.getData('application/json'));
-      const targetIndex = props.group.tabs.findIndex(tab => tab.id === targetTab.id);
       
-      if (data.tabId !== targetTab.id) {
-        tabGroupsStore.moveTabToGroup(data.tabId, props.group.id, targetIndex);
+      // 处理文件树节点拖拽
+      if (data.type === 'file-tree-node' && data.nodeType === 'file') {
+        // 检查当前组是否已存在相同文件的标签页
+        const existingTab = props.group.tabs.find(tab => tab.type === 'editor' && tab.filePath === data.nodePath);
+        if (existingTab) {
+          // 如果已存在，激活该标签页
+          tabGroupsStore.setActiveTab(existingTab.id, props.group.id);
+          return;
+        }
+        
+        const targetIndex = props.group.tabs.findIndex(tab => tab.id === targetTab.id);
+        
+        // 创建新的编辑器标签页
+        const newTab = {
+          id: `tab_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          title: data.nodeName,
+          type: 'editor',
+          filePath: data.nodePath,
+          content: '',
+          isActive: true,
+          isDirty: false,
+          lastModified: new Date(),
+          metadata: {}
+        };
+        
+        // 添加到当前组的指定位置
+        tabGroupsStore.addTabToGroup(newTab, props.group.id);
+        return;
+      }
+      
+      // 处理标签页拖拽
+      if (data.tabId) {
+        const targetIndex = props.group.tabs.findIndex(tab => tab.id === targetTab.id);
+        
+        if (data.tabId !== targetTab.id) {
+          tabGroupsStore.moveTabToGroup(data.tabId, props.group.id, targetIndex);
+        }
       }
     } catch (error) {
       console.error('Failed to parse drag data:', error);
@@ -386,11 +483,114 @@ const handleDrop = (targetTab: any, event: DragEvent) => {
 
 const handleDropToEmpty = (event: DragEvent) => {
   event.preventDefault();
+  event.stopPropagation();
+  
+  // 清理超时
+  if (dragTimeout) {
+    clearTimeout(dragTimeout);
+    dragTimeout = null;
+  }
+  
+  // 清理整个标签组的拖拽效果
+  const tabGroup = event.currentTarget?.closest('.tab-group') as HTMLElement;
+  if (tabGroup) {
+    tabGroup.classList.remove('drag-over', 'drag-enter');
+  }
   
   if (event.dataTransfer) {
     try {
       const data = JSON.parse(event.dataTransfer.getData('application/json'));
-      tabGroupsStore.moveTabToGroup(data.tabId, props.group.id);
+      
+      // 处理文件树节点拖拽
+      if (data.type === 'file-tree-node' && data.nodeType === 'file') {
+        // 检查当前组是否已存在相同文件的标签页
+        const existingTab = props.group.tabs.find(tab => tab.type === 'editor' && tab.filePath === data.nodePath);
+        if (existingTab) {
+          // 如果已存在，激活该标签页
+          tabGroupsStore.setActiveTab(existingTab.id, props.group.id);
+          return;
+        }
+        
+        // 创建新的编辑器标签页
+        const newTab = {
+          id: `tab_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          title: data.nodeName,
+          type: 'editor',
+          filePath: data.nodePath,
+          content: '',
+          isActive: true,
+          isDirty: false,
+          lastModified: new Date(),
+          metadata: {}
+        };
+        
+        // 添加到当前组
+        tabGroupsStore.addTabToGroup(newTab, props.group.id);
+        return;
+      }
+      
+      // 处理标签页拖拽
+      if (data.tabId) {
+        tabGroupsStore.moveTabToGroup(data.tabId, props.group.id);
+      }
+    } catch (error) {
+      console.error('Failed to parse drag data:', error);
+    }
+  }
+};
+
+const handleDropToContent = (event: DragEvent) => {
+  event.preventDefault();
+  event.stopPropagation();
+  
+  // 清理超时
+  if (dragTimeout) {
+    clearTimeout(dragTimeout);
+    dragTimeout = null;
+  }
+  
+  // 清理标签组的拖拽效果
+  const tabGroup = event.currentTarget?.closest('.tab-group') as HTMLElement;
+  if (tabGroup) {
+    tabGroup.classList.remove('drag-over', 'drag-enter');
+  }
+  
+  if (event.dataTransfer) {
+    try {
+      const data = JSON.parse(event.dataTransfer.getData('application/json'));
+      
+      // 处理文件树节点拖拽
+      if (data.type === 'file-tree-node' && data.nodeType === 'file') {
+        // 检查当前组是否已存在相同文件的标签页
+        const existingTab = props.group.tabs.find(tab => tab.type === 'editor' && tab.filePath === data.nodePath);
+        if (existingTab) {
+          // 如果已存在，激活该标签页
+          tabGroupsStore.setActiveTab(existingTab.id, props.group.id);
+          return;
+        }
+        
+        // 创建新的编辑器标签页
+        const newTab = {
+          id: `tab_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          title: data.nodeName,
+          type: 'editor',
+          filePath: data.nodePath,
+          content: '',
+          isActive: true,
+          isDirty: false,
+          lastModified: new Date(),
+          metadata: {}
+        };
+        
+        // 添加到当前组
+        tabGroupsStore.addTabToGroup(newTab, props.group.id);
+        return;
+      }
+      
+      // 处理标签页拖拽
+      if (data.tabId) {
+        tabGroupsStore.moveTabToGroup(data.tabId, props.group.id);
+      }
     } catch (error) {
       console.error('Failed to parse drag data:', error);
     }
@@ -400,6 +600,212 @@ const handleDropToEmpty = (event: DragEvent) => {
 const handleTabContextMenu = (tab: any, event: MouseEvent) => {
   // TODO: 实现右键菜单
   console.log('Tab context menu:', tab, event);
+};
+
+// 标签条专用的拖拽处理函数
+const handleTabDragOver = (event: DragEvent) => {
+  event.preventDefault();
+  event.stopPropagation();
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move';
+  }
+  
+  // 为整个标签组添加拖拽效果
+  const tabGroup = event.currentTarget?.closest('.tab-group') as HTMLElement;
+  if (tabGroup && !tabGroup.classList.contains('drag-over')) {
+    tabGroup.classList.add('drag-over');
+  }
+};
+
+const handleTabDragEnter = (event: DragEvent) => {
+  event.preventDefault();
+  event.stopPropagation();
+  
+  // 为整个标签组添加拖拽进入效果
+  const tabGroup = event.currentTarget?.closest('.tab-group') as HTMLElement;
+  if (tabGroup && !tabGroup.classList.contains('drag-enter')) {
+    tabGroup.classList.add('drag-enter');
+  }
+};
+
+const handleTabDragLeave = (event: DragEvent) => {
+  event.stopPropagation();
+  
+  // 清理超时
+  if (dragTimeout) {
+    clearTimeout(dragTimeout);
+    dragTimeout = null;
+  }
+  
+  // 清理标签组的拖拽效果
+  const tabGroup = event.currentTarget?.closest('.tab-group') as HTMLElement;
+  if (tabGroup) {
+    tabGroup.classList.remove('drag-over', 'drag-enter');
+  }
+};
+
+const handleTabDrop = (targetTab: any, event: DragEvent) => {
+  event.preventDefault();
+  event.stopPropagation();
+  
+  // 清理超时
+  if (dragTimeout) {
+    clearTimeout(dragTimeout);
+    dragTimeout = null;
+  }
+  
+  // 清理标签组的拖拽效果
+  const tabGroup = event.currentTarget?.closest('.tab-group') as HTMLElement;
+  if (tabGroup) {
+    tabGroup.classList.remove('drag-over', 'drag-enter');
+  }
+  
+  if (event.dataTransfer) {
+    try {
+      const data = JSON.parse(event.dataTransfer.getData('application/json'));
+      
+      // 处理文件树节点拖拽
+      if (data.type === 'file-tree-node' && data.nodeType === 'file') {
+        // 检查当前组是否已存在相同文件的标签页
+        const existingTab = props.group.tabs.find(tab => tab.type === 'editor' && tab.filePath === data.nodePath);
+        if (existingTab) {
+          // 如果已存在，激活该标签页
+          tabGroupsStore.setActiveTab(existingTab.id, props.group.id);
+          return;
+        }
+        
+        const targetIndex = props.group.tabs.findIndex(tab => tab.id === targetTab.id);
+        
+        // 创建新的编辑器标签页
+        const newTab = {
+          id: `tab_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          title: data.nodeName,
+          type: 'editor',
+          filePath: data.nodePath,
+          content: '',
+          isActive: true,
+          isDirty: false,
+          lastModified: new Date(),
+          metadata: {}
+        };
+        
+        // 添加到当前组的指定位置
+        tabGroupsStore.addTabToGroup(newTab, props.group.id);
+        return;
+      }
+      
+      // 处理标签页拖拽
+      if (data.tabId) {
+        const targetIndex = props.group.tabs.findIndex(tab => tab.id === targetTab.id);
+        
+        if (data.tabId !== targetTab.id) {
+          tabGroupsStore.moveTabToGroup(data.tabId, props.group.id, targetIndex);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to parse drag data:', error);
+    }
+  }
+};
+
+// 标签头部的拖拽处理函数
+const handleTabHeaderDragOver = (event: DragEvent) => {
+  event.preventDefault();
+  event.stopPropagation();
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move';
+  }
+  
+  // 为整个标签组添加拖拽效果
+  const tabGroup = event.currentTarget?.closest('.tab-group') as HTMLElement;
+  if (tabGroup && !tabGroup.classList.contains('drag-over')) {
+    tabGroup.classList.add('drag-over');
+  }
+};
+
+const handleTabHeaderDragEnter = (event: DragEvent) => {
+  event.preventDefault();
+  event.stopPropagation();
+  
+  // 为整个标签组添加拖拽进入效果
+  const tabGroup = event.currentTarget?.closest('.tab-group') as HTMLElement;
+  if (tabGroup && !tabGroup.classList.contains('drag-enter')) {
+    tabGroup.classList.add('drag-enter');
+  }
+};
+
+const handleTabHeaderDragLeave = (event: DragEvent) => {
+  event.stopPropagation();
+  
+  // 清理超时
+  if (dragTimeout) {
+    clearTimeout(dragTimeout);
+    dragTimeout = null;
+  }
+  
+  // 清理标签组的拖拽效果
+  const tabGroup = event.currentTarget?.closest('.tab-group') as HTMLElement;
+  if (tabGroup) {
+    tabGroup.classList.remove('drag-over', 'drag-enter');
+  }
+};
+
+const handleTabHeaderDrop = (event: DragEvent) => {
+  event.preventDefault();
+  event.stopPropagation();
+  
+  // 清理超时
+  if (dragTimeout) {
+    clearTimeout(dragTimeout);
+    dragTimeout = null;
+  }
+  
+  // 清理标签组的拖拽效果
+  const tabGroup = event.currentTarget?.closest('.tab-group') as HTMLElement;
+  if (tabGroup) {
+    tabGroup.classList.remove('drag-over', 'drag-enter');
+  }
+  
+  if (event.dataTransfer) {
+    try {
+      const data = JSON.parse(event.dataTransfer.getData('application/json'));
+      
+      // 处理文件树节点拖拽
+      if (data.type === 'file-tree-node' && data.nodeType === 'file') {
+        // 检查当前组是否已存在相同文件的标签页
+        const existingTab = props.group.tabs.find(tab => tab.type === 'editor' && tab.filePath === data.nodePath);
+        if (existingTab) {
+          // 如果已存在，激活该标签页
+          tabGroupsStore.setActiveTab(existingTab.id, props.group.id);
+          return;
+        }
+        
+        // 创建新的编辑器标签页
+        const newTab = {
+          id: `tab_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          title: data.nodeName,
+          type: 'editor',
+          filePath: data.nodePath,
+          content: '',
+          isActive: true,
+          isDirty: false,
+          lastModified: new Date(),
+          metadata: {}
+        };
+        
+        // 添加到当前组
+        tabGroupsStore.addTabToGroup(newTab, props.group.id);
+        return;
+      }
+      
+      // 处理标签页拖拽
+      if (data.tabId) {
+        tabGroupsStore.moveTabToGroup(data.tabId, props.group.id);
+      }
+    } catch (error) {
+      console.error('Failed to parse drag data:', error);
+    }
+  }
 };
 
 // 分区大小调整
@@ -553,5 +959,52 @@ const handleResizerHover = (isHover: boolean, event?: MouseEvent) => {
 /* 拖拽条样式增强 */
 .tab-group [style*="backgroundColor"]:hover {
   transition: all 0.2s ease;
+}
+
+/* 拖拽效果样式 - 标签组整体效果 */
+.tab-group.drag-over {
+  background-color: rgba(59, 130, 246, 0.08) !important;
+  border: 2px dashed #3b82f6 !important;
+  position: relative;
+  z-index: 10;
+  transition: all 0.15s ease;
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.3);
+}
+
+.tab-group.drag-enter {
+  background-color: rgba(59, 130, 246, 0.12) !important;
+  border: 2px solid #3b82f6 !important;
+  position: relative;
+  z-index: 10;
+  transition: all 0.15s ease;
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.4);
+}
+
+/* 标签条区域的拖拽效果 */
+.tab-group .tab-header.drag-over,
+.tab-group .tab-header.drag-enter {
+  background-color: rgba(59, 130, 246, 0.15) !important;
+  border-bottom: 2px solid #3b82f6 !important;
+}
+
+/* 标签页内容的拖拽效果 */
+.tab-group .tab-content.drag-over,
+.tab-group .tab-content.drag-enter {
+  background-color: rgba(59, 130, 246, 0.05) !important;
+  border: 1px dashed #3b82f6 !important;
+}
+
+/* 单个标签页的拖拽效果 */
+.tab-group [draggable="true"].drag-over,
+.tab-group [draggable="true"].drag-enter {
+  background-color: rgba(59, 130, 246, 0.2) !important;
+  border: 2px solid #3b82f6 !important;
+  transform: scale(1.02);
+}
+
+/* 标签页拖拽时的样式 */
+.tab-group [draggable="true"]:active {
+  opacity: 0.7;
+  /* 移除旋转效果 */
 }
 </style>

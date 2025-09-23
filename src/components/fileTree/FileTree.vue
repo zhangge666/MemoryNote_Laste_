@@ -112,6 +112,10 @@
           @rename="handleRenameNode"
           @start-edit="handleStartEdit"
           @open="handleOpenFile"
+          @drag-start="handleDragStart"
+          @drag-over="handleDragOver"
+          @drag-enter="handleDragEnter"
+          @drop="handleDrop"
         />
       </div>
     </div>
@@ -237,6 +241,78 @@ const handleOpenFile = (nodeId: string) => {
   if (node && node.type === 'file' && node.path) {
     // 发出打开文件事件，让父组件处理
     emit('open-file', node.path, node.name);
+  }
+};
+
+// 拖拽事件处理
+const handleDragStart = (nodeId: string, event: DragEvent) => {
+  console.log('File tree drag start:', nodeId);
+};
+
+const handleDragOver = (nodeId: string, event: DragEvent) => {
+  console.log('File tree drag over:', nodeId);
+};
+
+const handleDragEnter = (nodeId: string, event: DragEvent) => {
+  console.log('File tree drag enter:', nodeId);
+};
+
+const handleDrop = async (nodeId: string, event: DragEvent) => {
+  console.log('File tree drop:', nodeId);
+  
+  if (event.dataTransfer) {
+    try {
+      const data = JSON.parse(event.dataTransfer.getData('application/json'));
+      
+      // 处理文件树节点拖拽重排序
+      if (data.type === 'file-tree-node' && data.nodeId !== nodeId) {
+        const targetNode = fileTreeService.findNode(nodeId);
+        const sourceNode = fileTreeService.findNode(data.nodeId);
+        
+        if (targetNode && sourceNode) {
+          // 如果拖拽到文件夹上，移动到该文件夹内
+          if (targetNode.type === 'folder') {
+            const success = await fileTreeService.moveNode(data.nodeId, nodeId);
+            if (success) {
+              console.log('File moved successfully');
+            } else {
+              console.error('Failed to move file');
+            }
+          } else {
+            // 如果拖拽到文件上，移动到同一父目录并重新排序
+            let parentNodeId = targetNode.parent;
+            
+            // 如果目标节点没有父节点（即根目录），使用空字符串
+            if (!parentNodeId) {
+              parentNodeId = '';
+            }
+            
+            const parentNode = parentNodeId ? fileTreeService.findNode(parentNodeId) : null;
+            if (parentNode && parentNode.children) {
+              const targetIndex = parentNode.children.findIndex(child => child.id === nodeId);
+              if (targetIndex !== -1) {
+                const success = await fileTreeService.moveNode(data.nodeId, parentNodeId, targetIndex);
+                if (success) {
+                  console.log('File reordered successfully');
+                } else {
+                  console.error('Failed to reorder file');
+                }
+              }
+            } else if (!parentNodeId) {
+              // 处理拖拽到根目录的情况
+              const success = await fileTreeService.moveNode(data.nodeId, '', 0);
+              if (success) {
+                console.log('File moved to root successfully');
+              } else {
+                console.error('Failed to move file to root');
+              }
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to parse drag data:', error);
+    }
   }
 };
 </script>

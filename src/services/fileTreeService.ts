@@ -1,6 +1,7 @@
 import { ref, reactive } from 'vue';
 import type { FileTreeNode, FileTreeState } from '../types/fileTree';
 import { settingsService } from './settingsService';
+import { useTabGroupsStore } from '../stores/tabGroups';
 
 export class FileTreeService {
   private static instance: FileTreeService;
@@ -275,6 +276,10 @@ export class FileTreeService {
       const node = this.findNode(nodeId);
       if (!node) return false;
 
+      // 关闭相关的标签页
+      const tabGroupsStore = useTabGroupsStore();
+      tabGroupsStore.closeFileTabs(node.path);
+
       const success = await window.electronAPI.deleteFile(node.path);
       if (success) {
         await this.loadFileTree();
@@ -332,6 +337,10 @@ export class FileTreeService {
         return false;
       }
       
+      // 更新标签页中的文件路径
+      const tabGroupsStore = useTabGroupsStore();
+      tabGroupsStore.updateFilePath(node.path, newPath);
+
       // 更新节点信息
       node.name = newName;
       node.path = newPath;
@@ -389,6 +398,96 @@ export class FileTreeService {
   // 刷新文件树
   async refresh(): Promise<void> {
     await this.loadFileTree();
+  }
+
+  // 移动节点到新位置
+  async moveNode(nodeId: string, targetParentId: string, targetIndex?: number): Promise<boolean> {
+    try {
+      const node = this.findNode(nodeId);
+      if (!node) {
+        console.error('Source node not found:', nodeId);
+        return false;
+      }
+
+      // 找到目标父节点
+      const targetParent = targetParentId ? this.findNode(targetParentId) : null;
+      const targetParentPath = targetParent ? targetParent.path : settingsService.getState().workspacePath;
+      
+      if (!targetParentPath) {
+        console.error('Target parent path not found');
+        return false;
+      }
+
+      // 构建新的文件路径
+      const newPath = `${targetParentPath}\\${node.name}`;
+      
+      // 检查目标路径是否已存在
+      if (await this.fileExists(newPath) || await this.directoryExists(newPath)) {
+        console.error('Target path already exists:', newPath);
+        return false;
+      }
+
+      // 执行文件系统移动操作（使用renameFile，因为移动和重命名在文件系统中是相同的操作）
+      const moveSuccess = await window.electronAPI.renameFile(node.path, newPath);
+      if (!moveSuccess) {
+        console.error('Failed to move file/folder');
+        return false;
+      }
+
+      // 更新标签页中的文件路径
+      const tabGroupsStore = useTabGroupsStore();
+      tabGroupsStore.updateFilePath(node.path, newPath);
+
+      // 更新节点路径
+      node.path = newPath;
+      node.parent = targetParentId;
+
+      // 重新加载文件树以反映变化
+      await this.loadFileTree();
+      
+      return true;
+    } catch (error) {
+      console.error('Error moving node:', error);
+      return false;
+    }
+  }
+
+  // 在文件树中重新排序节点
+  reorderNodes(nodeId: string, targetIndex: number): boolean {
+    try {
+      const node = this.findNode(nodeId);
+      if (!node || !node.parent) {
+        console.error('Node or parent not found');
+        return false;
+      }
+
+      const parentNode = this.findNode(node.parent);
+      if (!parentNode || !parentNode.children) {
+        console.error('Parent node or children not found');
+        return false;
+      }
+
+      // 从原位置移除
+      const currentIndex = parentNode.children.findIndex(child => child.id === nodeId);
+      if (currentIndex === -1) {
+        console.error('Node not found in parent children');
+        return false;
+      }
+
+      const [movedNode] = parentNode.children.splice(currentIndex, 1);
+      
+      // 插入到新位置
+      const insertIndex = Math.min(targetIndex, parentNode.children.length);
+      parentNode.children.splice(insertIndex, 0, movedNode);
+
+      // 强制触发响应式更新
+      this.state.nodes = [...this.state.nodes];
+      
+      return true;
+    } catch (error) {
+      console.error('Error reordering nodes:', error);
+      return false;
+    }
   }
 }
 

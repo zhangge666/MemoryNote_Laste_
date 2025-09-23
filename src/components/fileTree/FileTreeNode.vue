@@ -11,6 +11,13 @@
       ]"
       :style="{ paddingLeft: `${level * 16 + 8}px` }"
       @click="handleNodeClick"
+      draggable="true"
+      @dragstart="handleDragStart"
+      @dragover.prevent="handleDragOver"
+      @dragenter.prevent="handleDragEnter"
+      @dragleave="handleDragLeave"
+      @drop="handleDrop"
+      @dragend="handleDragEnd"
     >
       <!-- 展开/折叠图标 -->
       <div class="flex items-center mr-1">
@@ -125,6 +132,10 @@
         @rename="$emit('rename', $event, $event)"
         @start-edit="$emit('start-edit', $event)"
         @open="$emit('open', $event)"
+        @drag-start="$emit('drag-start', $event, $event)"
+        @drag-over="$emit('drag-over', $event, $event)"
+        @drag-enter="$emit('drag-enter', $event, $event)"
+        @drop="$emit('drop', $event, $event)"
       />
     </div>
   </div>
@@ -146,6 +157,10 @@ interface Emits {
   (e: 'rename', nodeId: string, newName: string): void;
   (e: 'start-edit', nodeId: string): void;
   (e: 'open', nodeId: string): void;
+  (e: 'drag-start', nodeId: string, event: DragEvent): void;
+  (e: 'drag-over', nodeId: string, event: DragEvent): void;
+  (e: 'drag-enter', nodeId: string, event: DragEvent): void;
+  (e: 'drop', nodeId: string, event: DragEvent): void;
 }
 
 const props = defineProps<Props>();
@@ -270,4 +285,107 @@ const formatFileSize = (bytes: number): string => {
   
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 };
+
+// 拖拽事件处理
+const handleDragStart = (event: DragEvent) => {
+  if (event.dataTransfer) {
+    event.dataTransfer.setData('application/json', JSON.stringify({
+      type: 'file-tree-node',
+      nodeId: props.node.id,
+      nodeType: props.node.type,
+      nodeName: props.node.name,
+      nodePath: props.node.path
+    }));
+    event.dataTransfer.effectAllowed = 'move';
+  }
+  
+  // 添加拖拽开始时的视觉反馈
+  const target = event.currentTarget as HTMLElement;
+  if (target) {
+    target.classList.add('dragging');
+  }
+  
+  emit('drag-start', props.node.id, event);
+};
+
+const handleDragOver = (event: DragEvent) => {
+  event.preventDefault();
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move';
+  }
+  
+  // 添加拖拽悬停效果
+  const target = event.currentTarget as HTMLElement;
+  if (target && !target.classList.contains('drag-over')) {
+    target.classList.add('drag-over');
+  }
+  
+  emit('drag-over', props.node.id, event);
+};
+
+const handleDragEnter = (event: DragEvent) => {
+  event.preventDefault();
+  
+  // 添加拖拽进入效果
+  const target = event.currentTarget as HTMLElement;
+  if (target && !target.classList.contains('drag-enter')) {
+    target.classList.add('drag-enter');
+  }
+  
+  emit('drag-enter', props.node.id, event);
+};
+
+const handleDragLeave = (event: DragEvent) => {
+  // 清理拖拽效果
+  const target = event.currentTarget as HTMLElement;
+  if (target) {
+    target.classList.remove('drag-over', 'drag-enter');
+  }
+};
+
+const handleDrop = (event: DragEvent) => {
+  event.preventDefault();
+  
+  // 清理拖拽效果
+  const target = event.currentTarget as HTMLElement;
+  if (target) {
+    target.classList.remove('drag-over', 'drag-enter');
+  }
+  
+  emit('drop', props.node.id, event);
+};
+
+// 拖拽结束时的清理
+const handleDragEnd = (event: DragEvent) => {
+  const target = event.currentTarget as HTMLElement;
+  if (target) {
+    target.classList.remove('dragging', 'drag-over', 'drag-enter');
+  }
+};
 </script>
+
+<style scoped>
+/* 文件树拖拽效果样式 */
+.file-tree-node-content.dragging {
+  opacity: 0.6;
+  transform: scale(0.98);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  background-color: rgba(59, 130, 246, 0.1);
+  border: 2px dashed #3b82f6;
+  transition: all 0.2s ease;
+}
+
+.file-tree-node-content.drag-over {
+  background-color: rgba(59, 130, 246, 0.15);
+  border: 2px dashed #3b82f6;
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.3);
+  transition: all 0.15s ease;
+}
+
+.file-tree-node-content.drag-enter {
+  background-color: rgba(59, 130, 246, 0.2);
+  border: 2px solid #3b82f6;
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.4);
+  transition: all 0.15s ease;
+}
+</style>

@@ -132,13 +132,25 @@ const openNote = (note: any) => {
 
 // 处理打开文件
 const handleOpenFile = (filePath: string, fileName: string) => {
-  // 使用新的标签页组系统打开编辑器
-  tabGroupsStore.addTabToGroup({
-    title: fileName,
-    type: 'editor',
-    filePath: filePath,
-    content: '',
-  });
+  // 检查是否已经存在相同文件的标签页
+  const existingTabs = tabGroupsStore.getFileTabs(filePath);
+  
+  if (existingTabs.length > 0) {
+    // 如果已存在，激活第一个标签页
+    const existingTab = existingTabs[0];
+    const groupId = tabGroupsStore.layout.groups.get(tabGroupsStore.layout.activeGroupId)?.id || 'root';
+    tabGroupsStore.setActiveTab(existingTab.id, groupId);
+    console.log('File already open, switching to existing tab:', existingTab.id);
+  } else {
+    // 如果不存在，创建新的标签页
+    tabGroupsStore.addTabToGroup({
+      title: fileName,
+      type: 'editor',
+      filePath: filePath,
+      content: '',
+    });
+    console.log('Created new tab for file:', filePath);
+  }
 };
 
 const formatDate = (dateString: string) => {
