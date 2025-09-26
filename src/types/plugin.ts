@@ -38,6 +38,12 @@ export enum HookType {
   APP_READY = 'app.ready',
   APP_CLOSING = 'app.closing',
   
+  // 右侧栏钩子
+  PLUGIN_RIGHT_PANEL_SET = 'plugin.rightPanel.set',
+  PLUGIN_RIGHT_PANEL_CLEAR = 'plugin.rightPanel.clear',
+  PLUGIN_RIGHT_PANEL_HIDE = 'plugin.rightPanel.hide',
+  PLUGIN_RIGHT_PANEL_SHOW = 'plugin.rightPanel.show',
+  
   // 文件操作
   FILE_OPENING = 'file.opening',
   FILE_OPENED = 'file.opened',

@@ -26,6 +26,11 @@
         <PluginDetails :plugin="appStore.selectedPluginForDetails" @close="appStore.clearPluginDetails()" />
       </div>
       
+      <!-- 插件自定义内容 -->
+      <div v-else-if="appStore.rightPanelContent === 'plugin-content' && appStore.selectedPluginForDetails" class="h-full">
+        <div ref="pluginContentContainer" class="h-full"></div>
+      </div>
+      
       <!-- 文档信息 -->
       <div v-else-if="appStore.rightPanelContent === 'document-info' && tabGroupsStore.activeTab?.type === 'editor'" class="p-4">
         <div class="space-y-4">
@@ -73,7 +78,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onUnmounted } from 'vue';
+import { ref, onUnmounted, watch, nextTick } from 'vue';
 import { useTabGroupsStore } from '../../stores/tabGroups';
 import { useAppStore } from '../../stores/app';
 import PluginDetails from '../common/PluginDetails.vue';
@@ -82,6 +87,7 @@ const tabGroupsStore = useTabGroupsStore();
 const appStore = useAppStore();
 
 const isResizing = ref(false);
+const pluginContentContainer = ref<HTMLElement>();
 
 const startResize = (e: MouseEvent) => {
   isResizing.value = true;
@@ -125,9 +131,41 @@ onUnmounted(() => {
   document.removeEventListener('mouseup', () => {});
 });
 
+// 监听插件内容变化，动态挂载组件
+watch(() => appStore.selectedPluginForDetails, async (newContent) => {
+  if (appStore.rightPanelContent === 'plugin-content' && newContent && newContent.component) {
+    await nextTick()
+    if (pluginContentContainer.value) {
+      // 清空容器
+      pluginContentContainer.value.innerHTML = ''
+      
+      // 确保component是有效的DOM元素
+      const component = newContent.component
+      
+      // 检查是否是插件沙箱的代理元素
+      if (component && typeof component === 'object' && component.__target__) {
+        // 获取代理后面的真实DOM元素
+        pluginContentContainer.value.appendChild(component.__target__)
+      } else if (component instanceof HTMLElement) {
+        // 直接的DOM元素
+        pluginContentContainer.value.appendChild(component)
+      } else if (typeof component === 'string') {
+        // 如果是HTML字符串，直接设置innerHTML
+        pluginContentContainer.value.innerHTML = component
+      } else {
+        console.error('[AppRightPanel] Invalid component type:', typeof component, component)
+        pluginContentContainer.value.innerHTML = '<div class="p-4 text-red-500">插件组件类型错误</div>'
+      }
+    }
+  }
+}, { immediate: true })
+
 const getPanelTitle = () => {
   if (appStore.rightPanelContent === 'plugin-details') {
     return '插件详情';
+  }
+  if (appStore.rightPanelContent === 'plugin-content' && appStore.selectedPluginForDetails) {
+    return appStore.selectedPluginForDetails.title || '插件内容';
   }
   if (tabGroupsStore.activeTab?.type === 'editor') {
     return '文档信息';

@@ -68,6 +68,35 @@ class PluginUIAPIImpl implements PluginUIAPI {
     }
   }
 
+  // 右侧栏API
+  rightPanel = {
+    setContent: (content: { 
+      id: string
+      title: string
+      component: HTMLElement
+      onClose?: () => void 
+    }): Disposable => {
+      // 通过钩子系统触发右侧栏内容设置
+      hookSystem.emit(HookType.PLUGIN_RIGHT_PANEL_SET, { content }, 'plugin-api')
+      
+      return new DisposableImpl(() => {
+        // 清理时恢复到文档信息
+        hookSystem.emit(HookType.PLUGIN_RIGHT_PANEL_CLEAR, { contentId: content.id }, 'plugin-api')
+        if (content.onClose) {
+          content.onClose()
+        }
+      })
+    },
+
+    hide: (): void => {
+      hookSystem.emit(HookType.PLUGIN_RIGHT_PANEL_HIDE, {}, 'plugin-api')
+    },
+
+    show: (): void => {
+      hookSystem.emit(HookType.PLUGIN_RIGHT_PANEL_SHOW, {}, 'plugin-api')
+    }
+  }
+
   // 导航栏API
   navigation = {
     addButton: (button: NavigationButton): Disposable => {

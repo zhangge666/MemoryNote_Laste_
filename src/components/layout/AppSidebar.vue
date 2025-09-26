@@ -20,9 +20,9 @@
       </button>
 
       <!-- 分隔线 -->
-      <div v-if="pluginPanels.length > 0" class="w-8 border-t border-gray-200 dark:border-gray-700"></div>
+      <div v-if="pluginPanels.length > 0 || pluginNavigationButtons.length > 0" class="w-8 border-t border-gray-200 dark:border-gray-700"></div>
 
-      <!-- 插件导航按钮 -->
+      <!-- 插件侧边栏面板按钮 -->
       <button
         v-for="panel in pluginPanels"
         :key="panel.id"
@@ -37,6 +37,18 @@
       >
         <!-- 插件图标 -->
         <div v-html="panel.icon" class="w-5 h-5"></div>
+      </button>
+
+      <!-- 插件导航按钮 -->
+      <button
+        v-for="button in pluginNavigationButtons"
+        :key="button.id"
+        @click="handlePluginButtonClick(button)"
+        class="w-10 h-10 flex items-center justify-center rounded-lg transition-colors text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700"
+        :title="button.title"
+      >
+        <!-- 插件图标 -->
+        <div v-html="button.icon" class="w-5 h-5"></div>
       </button>
     </div>
     
@@ -112,6 +124,18 @@ const pluginPanels = computed(() => {
     return validPanels.filter(panel => panel && panel.id && panel.title)
   } catch (error) {
     console.warn('Error accessing plugin panels:', error)
+    return []
+  }
+});
+
+// 获取插件导航按钮
+const pluginNavigationButtons = computed(() => {
+  try {
+    const buttons = pluginService.navigationButtons?.value || pluginService.navigationButtons || []
+    const validButtons = Array.isArray(buttons) ? buttons : []
+    return validButtons.filter(button => button && button.id && button.title)
+  } catch (error) {
+    console.warn('Error accessing plugin navigation buttons:', error)
     return []
   }
 });
@@ -227,6 +251,12 @@ const handlePluginNavigation = (panelId: string) => {
   // 确保左侧边栏可见并设置为插件面板
   if (!appStore.leftSidebarVisible) {
     appStore.toggleLeftSidebar();
+  }
+};
+
+const handlePluginButtonClick = (button: any) => {
+  if (typeof button.onClick === 'function') {
+    button.onClick();
   }
 };
 

@@ -8,6 +8,7 @@ import type {
   Theme,
   HookContext
 } from '../../types/plugin'
+import { useAppStore } from '../../stores/app'
 import { PluginLifecycle, HookType } from '../../types/plugin'
 import { PluginManager } from './pluginManager'
 import { pluginAPI } from './pluginAPI'
@@ -98,6 +99,12 @@ export class PluginService {
     hookSystem.on(HookType.SYSTEM_COMMAND_UNREGISTERED, this.onCommandUnregistered.bind(this))
     hookSystem.on(HookType.SYSTEM_THEME_REGISTERED, this.onThemeRegistered.bind(this))
     hookSystem.on(HookType.SYSTEM_THEME_UNREGISTERED, this.onThemeUnregistered.bind(this))
+    
+    // 监听右侧栏钩子
+    hookSystem.on(HookType.PLUGIN_RIGHT_PANEL_SET, this.onRightPanelSet.bind(this))
+    hookSystem.on(HookType.PLUGIN_RIGHT_PANEL_CLEAR, this.onRightPanelClear.bind(this))
+    hookSystem.on(HookType.PLUGIN_RIGHT_PANEL_HIDE, this.onRightPanelHide.bind(this))
+    hookSystem.on(HookType.PLUGIN_RIGHT_PANEL_SHOW, this.onRightPanelShow.bind(this))
   }
 
   /**
@@ -352,6 +359,41 @@ export class PluginService {
     if (index !== -1) {
       this.state.themes.splice(index, 1)
     }
+  }
+
+  // 右侧栏钩子处理方法
+  private onRightPanelSet(context: HookContext<{ content: any }>): void {
+    const appStore = useAppStore()
+    const content = context.data.content
+    
+    // 设置自定义内容到右侧栏
+    appStore.setRightPanelContent('plugin-content')
+    appStore.selectedPluginForDetails = {
+      id: content.id,
+      title: content.title,
+      component: content.component,
+      onClose: content.onClose
+    }
+    
+    // 自动打开右侧栏
+    appStore.rightSidebarVisible = true
+  }
+
+  private onRightPanelClear(context: HookContext<{ contentId: string }>): void {
+    const appStore = useAppStore()
+    // 清理时恢复到文档信息
+    appStore.setRightPanelContent('document-info')
+    appStore.selectedPluginForDetails = null
+  }
+
+  private onRightPanelHide(context: HookContext<{}>): void {
+    const appStore = useAppStore()
+    appStore.rightSidebarVisible = false
+  }
+
+  private onRightPanelShow(context: HookContext<{}>): void {
+    const appStore = useAppStore()
+    appStore.rightSidebarVisible = true
   }
 
   /**

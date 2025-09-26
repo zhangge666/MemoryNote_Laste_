@@ -20,8 +20,8 @@ class NoteOrganizerPlugin {
   async onActivate() {
     console.log(`${this.name} 插件已激活`)
 
-    // 注册侧边栏面板
-    this.registerSidebarPanel()
+    // 注册导航按钮（用于打开右侧栏）
+    this.registerNavigationButton()
     
     // 注册命令
     this.registerCommands()
@@ -31,26 +31,78 @@ class NoteOrganizerPlugin {
   }
 
   /**
-   * 注册侧边栏面板
+   * 注册导航按钮
+   */
+  registerNavigationButton() {
+    try {
+      const button = {
+        id: 'note-organizer-button',
+        title: '笔记整理器',
+        icon: this.createIcon(),
+        position: 3,
+        onClick: () => {
+          // 点击时打开右侧栏面板
+          this.openRightPanel()
+        }
+      }
+
+      // 注册导航按钮
+      const disposable = this.api.ui.navigation.addButton(button)
+      this.disposables.push(disposable)
+      
+      console.log('笔记整理器导航按钮已注册')
+    } catch (error) {
+      console.error('注册导航按钮失败:', error)
+    }
+  }
+
+  /**
+   * 打开右侧栏面板
+   */
+  openRightPanel() {
+    try {
+      // 创建右侧栏内容
+      const content = {
+        id: 'note-organizer-panel',
+        title: '笔记整理器',
+        component: this.createPanelComponent(),
+        onClose: () => {
+          console.log('笔记整理器面板已关闭')
+        }
+      }
+
+      // 设置右侧栏内容
+      const disposable = this.api.ui.rightPanel.setContent(content)
+      this.disposables.push(disposable)
+      
+      console.log('笔记整理器右侧栏面板已打开')
+    } catch (error) {
+      console.error('打开右侧栏面板失败:', error)
+    }
+  }
+
+  /**
+   * 注册右侧栏面板（废弃，改为按需打开）
    */
   registerSidebarPanel() {
     try {
-      // 创建侧边栏面板
-      const panel = {
+      // 创建右侧栏内容
+      const content = {
         id: 'note-organizer-panel',
-        title: '笔记整理',
-        icon: this.createIcon(),
+        title: '笔记整理器',
         component: this.createPanelComponent(),
-        position: 3
+        onClose: () => {
+          console.log('笔记整理器面板已关闭')
+        }
       }
 
-      // 注册面板
-      const disposable = this.api.ui.sidebar.registerPanel(panel)
+      // 注册到右侧栏
+      const disposable = this.api.ui.rightPanel.setContent(content)
       this.disposables.push(disposable)
       
-      console.log('笔记整理器侧边栏面板已注册')
+      console.log('笔记整理器右侧栏面板已注册')
     } catch (error) {
-      console.error('注册侧边栏面板失败:', error)
+      console.error('注册右侧栏面板失败:', error)
     }
   }
 

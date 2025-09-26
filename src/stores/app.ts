@@ -10,7 +10,7 @@ export const useAppStore = defineStore('app', () => {
   const isLeftPanelResizing = ref(false);
   const isRightPanelResizing = ref(false);
   const currentView = ref('documents');
-  const rightPanelContent = ref<'document-info' | 'plugin-details' | null>('document-info');
+  const rightPanelContent = ref<'document-info' | 'plugin-details' | 'plugin-content' | null>('document-info');
   const selectedPluginForDetails = ref<any>(null);
   const isDarkMode = ref(false);
   const workspacePath = ref('');
@@ -72,7 +72,7 @@ export const useAppStore = defineStore('app', () => {
     isRightPanelResizing.value = resizing;
   };
 
-  const setRightPanelContent = (content: 'document-info' | 'plugin-details' | null) => {
+  const setRightPanelContent = (content: 'document-info' | 'plugin-details' | 'plugin-content' | null) => {
     rightPanelContent.value = content;
   };
 

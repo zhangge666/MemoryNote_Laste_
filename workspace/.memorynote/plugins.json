@@ -4,7 +4,7 @@
       "id": "note-organizer",
       "enabled": true,
       "autoLoad": true,
-      "lastLoaded": 1758877516319
+      "lastLoaded": 1758880692407
     }
   },
   "installedPlugins": {
@@ -12,8 +12,8 @@
       "id": "note-organizer",
       "version": "1.0.0",
       "installPath": "D:\\code\\MemoryNote_Laste_-main\\workspace/.memorynote/note-organizer",
-      "installTime": 1758877513942,
-      "enabled": false,
+      "installTime": 1758880170479,
+      "enabled": true,
       "autoLoad": true,
       "dependencies": [],
       "manifest": {
@@ -68,5 +68,5 @@
     }
   },
   "version": "1.0.0",
-  "lastUpdated": 1758877516322
+  "lastUpdated": 1758880692408
 }

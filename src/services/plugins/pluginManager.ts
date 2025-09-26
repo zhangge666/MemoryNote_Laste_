@@ -170,8 +170,14 @@ export class PluginManager extends EventEmitter {
               // 如果插件之前是激活状态，且当前未激活，则激活它
               const plugin = this.plugins.get(pluginId)!
               const state = pluginPersistence.getPluginState(pluginId)
+              console.log(`[PluginManager] Checking plugin ${pluginId}: enabled=${state?.enabled}, currentState=${plugin.state}`)
               if (state?.enabled && plugin.state !== PluginLifecycle.ACTIVE) {
+                console.log(`[PluginManager] Activating previously enabled plugin: ${pluginId}`)
                 await this.activatePlugin(pluginId)
+              } else if (!state?.enabled) {
+                console.log(`[PluginManager] Plugin ${pluginId} is disabled, skipping activation`)
+              } else {
+                console.log(`[PluginManager] Plugin ${pluginId} is already active`)
               }
               continue
             }
@@ -181,6 +187,7 @@ export class PluginManager extends EventEmitter {
             
             // 根据持久化状态决定是否激活插件
             const state = pluginPersistence.getPluginState(pluginId)
+            console.log(`[PluginManager] New plugin ${pluginId} loaded: enabled=${state?.enabled}`)
             if (state?.enabled) {
               console.log('Activating enabled plugin:', pluginId)
               await this.activatePlugin(pluginId)
@@ -465,8 +472,13 @@ export class PluginManager extends EventEmitter {
       // 更新状态
       loadedPlugin.state = PluginLifecycle.LOADED
 
-      // 记录插件安装信息到持久化存储
-      await pluginPersistence.recordInstallation(loadedPlugin, actualPluginPath)
+      // 只在插件未安装时记录安装信息，避免重置已有状态
+      if (!pluginPersistence.isPluginInstalled(manifest.id)) {
+        console.log(`[PluginManager] Recording first-time installation for: ${manifest.id}`)
+        await pluginPersistence.recordInstallation(loadedPlugin, actualPluginPath)
+      } else {
+        console.log(`[PluginManager] Plugin ${manifest.id} already installed, skipping state reset`)
+      }
       
       // 触发事件
       this.emit('plugin-loaded', { pluginId: manifest.id, manifest })

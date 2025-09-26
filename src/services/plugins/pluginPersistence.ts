@@ -76,6 +76,9 @@ export class PluginPersistence {
           lastUpdated: parsedState.lastUpdated || Date.now()
         }
         console.log('Plugin state loaded successfully:', Object.keys(this.state.installedPlugins).length, 'plugins')
+        
+        // 修复数据一致性问题
+        await this.fixDataConsistency()
       } else {
         console.log('No existing plugin state found, using default state')
         this.state = { ...PluginPersistence.DEFAULT_STATE }
@@ -132,6 +135,29 @@ export class PluginPersistence {
   }
 
   /**
+   * 修复pluginStates和installedPlugins之间的数据一致性问题
+   */
+  private async fixDataConsistency(): Promise<void> {
+    let needsSave = false
+    
+    for (const pluginId in this.state.pluginStates) {
+      const pluginState = this.state.pluginStates[pluginId]
+      const installInfo = this.state.installedPlugins[pluginId]
+      
+      if (installInfo && installInfo.enabled !== pluginState.enabled) {
+        console.log(`[PluginPersistence] Fixing data consistency for ${pluginId}: installedPlugins.enabled=${installInfo.enabled} -> ${pluginState.enabled}`)
+        installInfo.enabled = pluginState.enabled
+        needsSave = true
+      }
+    }
+    
+    if (needsSave) {
+      await this.saveState()
+      console.log(`[PluginPersistence] Data consistency fixed and saved`)
+    }
+  }
+
+  /**
    * 记录插件安装
    */
   async recordInstallation(plugin: LoadedPlugin, installPath: string): Promise<void> {
@@ -185,12 +211,25 @@ export class PluginPersistence {
       }
     }
 
+    console.log(`[PluginPersistence] Updating plugin state for ${pluginId}:`, updates)
+    const oldState = { ...this.state.pluginStates[pluginId] }
+    
     this.state.pluginStates[pluginId] = {
       ...this.state.pluginStates[pluginId],
       ...updates
     }
 
+    // 同时更新installedPlugins中的enabled状态，保持数据一致性
+    if (this.state.installedPlugins[pluginId] && 'enabled' in updates) {
+      console.log(`[PluginPersistence] Syncing enabled state to installedPlugins: ${updates.enabled}`)
+      this.state.installedPlugins[pluginId].enabled = updates.enabled!
+    }
+
+    console.log(`[PluginPersistence] State changed from:`, oldState)
+    console.log(`[PluginPersistence] State changed to:`, this.state.pluginStates[pluginId])
+
     await this.saveState()
+    console.log(`[PluginPersistence] State saved to disk`)
   }
 
   /**
