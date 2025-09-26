@@ -21,8 +21,13 @@
     
     <!-- 面板内容 -->
     <div class="flex-1 overflow-y-auto">
+      <!-- 插件详情 -->
+      <div v-if="appStore.rightPanelContent === 'plugin-details' && appStore.selectedPluginForDetails" class="p-4">
+        <PluginDetails :plugin="appStore.selectedPluginForDetails" @close="appStore.clearPluginDetails()" />
+      </div>
+      
       <!-- 文档信息 -->
-      <div v-if="tabGroupsStore.activeTab?.type === 'editor'" class="p-4">
+      <div v-else-if="appStore.rightPanelContent === 'document-info' && tabGroupsStore.activeTab?.type === 'editor'" class="p-4">
         <div class="space-y-4">
           <div>
             <h4 class="text-sm font-medium text-gray-900 dark:text-white mb-2">文档信息</h4>
@@ -71,6 +76,7 @@
 import { ref, onUnmounted } from 'vue';
 import { useTabGroupsStore } from '../../stores/tabGroups';
 import { useAppStore } from '../../stores/app';
+import PluginDetails from '../common/PluginDetails.vue';
 
 const tabGroupsStore = useTabGroupsStore();
 const appStore = useAppStore();
@@ -120,6 +126,9 @@ onUnmounted(() => {
 });
 
 const getPanelTitle = () => {
+  if (appStore.rightPanelContent === 'plugin-details') {
+    return '插件详情';
+  }
   if (tabGroupsStore.activeTab?.type === 'editor') {
     return '文档信息';
   }

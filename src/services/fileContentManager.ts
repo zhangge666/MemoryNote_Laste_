@@ -4,6 +4,7 @@ import { ref, reactive, watch } from 'vue';
 export interface FileContentState {
   filePath: string;
   content: string;
+  originalContent: string; // 原始保存的内容
   isDirty: boolean;
   lastModified: Date;
   lastSaved: Date | null;
@@ -57,6 +58,7 @@ class FileContentManager {
       this.fileStates.set(filePath, {
         filePath,
         content: '',
+        originalContent: '',
         isDirty: false,
         lastModified: new Date(),
         lastSaved: null
@@ -104,18 +106,27 @@ class FileContentManager {
     fileState.content = content;
     fileState.lastModified = new Date();
     
-    // 检查是否为脏状态（与保存的内容不同）
+    // 检查是否为脏状态（与原始保存的内容不同）
     const wasDirty = fileState.isDirty;
-    fileState.isDirty = true; // 内容变化时标记为脏状态
+    fileState.isDirty = content !== fileState.originalContent;
 
     console.log(`Updating content for file: ${filePath}, isDirty: ${fileState.isDirty}, fromEditor: ${fromEditorId}`);
+    console.log(`Content matches original: ${content === fileState.originalContent}`);
+    console.log(`Content length: ${content.length}, Original length: ${fileState.originalContent.length}`);
+    if (content !== fileState.originalContent) {
+      console.log(`Content diff detected - first 100 chars: "${content.substring(0, 100)}"`);
+      console.log(`Original first 100 chars: "${fileState.originalContent.substring(0, 100)}"`);
+    }
 
-    // 同步到所有其他编辑器实例
+    // 同步到所有编辑器实例（包括触发更新的编辑器）
     const editors = this.editorInstances.get(filePath) || [];
     editors.forEach(editor => {
-      // 不要同步回触发更新的编辑器
       if (editor.id !== fromEditorId) {
+        // 对于其他编辑器，同步内容和脏状态
         editor.updateContent(content);
+        editor.updateDirtyState(fileState.isDirty);
+      } else {
+        // 对于触发更新的编辑器，只同步脏状态（内容已经是最新的）
         editor.updateDirtyState(fileState.isDirty);
       }
     });
@@ -132,6 +143,7 @@ class FileContentManager {
     }
 
     fileState.isDirty = false;
+    fileState.originalContent = fileState.content; // 更新原始内容
     fileState.lastSaved = new Date();
 
     console.log(`Marking file as saved: ${filePath}`);
@@ -156,6 +168,7 @@ class FileContentManager {
         fileState = {
           filePath,
           content,
+          originalContent: content, // 设置原始内容
           isDirty: false,
           lastModified: new Date(),
           lastSaved: new Date()
@@ -163,11 +176,13 @@ class FileContentManager {
         this.fileStates.set(filePath, fileState);
       } else {
         fileState.content = content;
+        fileState.originalContent = content; // 更新原始内容
         fileState.isDirty = false;
         fileState.lastSaved = new Date();
       }
 
       console.log(`Loaded file content: ${filePath}`);
+      console.log(`Set original content for file: ${filePath}, length: ${content.length}`);
 
       // 同步到所有编辑器实例
       const editors = this.editorInstances.get(filePath) || [];

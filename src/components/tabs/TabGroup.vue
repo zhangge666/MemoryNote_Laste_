@@ -7,10 +7,14 @@
     <div 
       v-if="!group.children || group.children.length === 0"
       class="tab-header flex bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 h-10 min-h-10"
+      @dragover.prevent="handleTabHeaderDragOver"
+      @dragenter.prevent="handleTabHeaderDragEnter"
+      @dragleave="handleTabHeaderDragLeave"
+      @drop="handleTabHeaderDrop"
     >
       <!-- 标签页列表 -->
       <div 
-        class="flex-1 flex overflow-x-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent"
+        class="flex-1 flex overflow-x-auto overflow-y-hidden scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600 scrollbar-track-transparent"
         @wheel="handleWheel"
       >
         <div
@@ -26,9 +30,10 @@
           ]"
           draggable="true"
           @dragstart="handleDragStart(tab, $event)"
-          @dragover.prevent="handleDragOver"
-          @dragenter.prevent="handleDragEnter"
-          @drop="handleDrop(tab, $event)"
+          @dragover.prevent="handleTabDragOver"
+          @dragenter.prevent="handleTabDragEnter"
+          @dragleave="handleTabDragLeave"
+          @drop="handleTabDrop(tab, $event)"
         >
           <!-- 文件类型图标 -->
           <div class="w-4 h-4 mr-2 flex-shrink-0">
@@ -91,7 +96,13 @@
     </div>
     
     <!-- 标签页内容区域 -->
-    <div class="tab-content flex-1 overflow-hidden">
+    <div 
+      class="tab-content flex-1 overflow-hidden"
+      @dragover.prevent="handleDragOver"
+      @dragenter.prevent="handleDragEnter"
+      @dragleave="handleDragLeave"
+      @drop="handleDropToContent"
+    >
       <!-- 如果有子组，递归渲染 -->
       <div 
         v-if="group.children && group.children.length > 0"
@@ -176,6 +187,14 @@
       @dontSave="handleDontSaveAndClose"
       @cancel="handleCancelClose"
     />
+
+    <!-- 标签右键菜单 -->
+    <ContextMenu
+      :visible="tabContextMenuVisible"
+      :position="tabContextMenuPosition"
+      :items="tabContextMenuItems"
+      @close="tabContextMenuVisible = false"
+    />
   </div>
 </template>
 
@@ -185,6 +204,8 @@ import { useTabGroupsStore } from '@/stores/tabGroups';
 import { useAppStore } from '@/stores/app';
 import { TabGroup as TabGroupType } from '@/types/tabGroup';
 import SaveConfirmDialog from '@/components/common/SaveConfirmDialog.vue';
+import ContextMenu from '@/components/common/ContextMenu.vue';
+import type { ContextMenuItem } from '@/components/common/ContextMenu.vue';
 
 // 递归组件声明
 const TabGroup = defineAsyncComponent(() => import('./TabGroup.vue'));
@@ -346,6 +367,8 @@ const handleWheel = (event: WheelEvent) => {
 };
 
 // 拖拽处理
+let dragTimeout: number | null = null;
+
 const handleDragStart = (tab: any, event: DragEvent) => {
   if (event.dataTransfer) {
     event.dataTransfer.setData('application/json', JSON.stringify({
@@ -358,25 +381,109 @@ const handleDragStart = (tab: any, event: DragEvent) => {
 
 const handleDragOver = (event: DragEvent) => {
   event.preventDefault();
+  event.stopPropagation();
   if (event.dataTransfer) {
     event.dataTransfer.dropEffect = 'move';
   }
+  
+  // 使用防抖来减少闪烁
+  if (dragTimeout) {
+    clearTimeout(dragTimeout);
+  }
+  
+  dragTimeout = window.setTimeout(() => {
+    // 为整个标签组添加拖拽效果
+    const tabGroup = event.currentTarget?.closest('.tab-group') as HTMLElement;
+    if (tabGroup && !tabGroup.classList.contains('drag-over')) {
+      tabGroup.classList.add('drag-over');
+    }
+  }, 10);
 };
 
 const handleDragEnter = (event: DragEvent) => {
   event.preventDefault();
+  event.stopPropagation();
+  
+  // 为整个标签组添加拖拽进入效果
+  const tabGroup = event.currentTarget?.closest('.tab-group') as HTMLElement;
+  if (tabGroup && !tabGroup.classList.contains('drag-enter')) {
+    tabGroup.classList.add('drag-enter');
+  }
+};
+
+const handleDragLeave = (event: DragEvent) => {
+  event.stopPropagation();
+  
+  // 清理超时
+  if (dragTimeout) {
+    clearTimeout(dragTimeout);
+    dragTimeout = null;
+  }
+  
+  // 清理整个标签组的拖拽效果
+  const tabGroup = event.currentTarget?.closest('.tab-group') as HTMLElement;
+  if (tabGroup) {
+    tabGroup.classList.remove('drag-over', 'drag-enter');
+  }
 };
 
 const handleDrop = (targetTab: any, event: DragEvent) => {
   event.preventDefault();
+  event.stopPropagation();
+  
+  // 清理超时
+  if (dragTimeout) {
+    clearTimeout(dragTimeout);
+    dragTimeout = null;
+  }
+  
+  // 清理整个标签组的拖拽效果
+  const tabGroup = event.currentTarget?.closest('.tab-group') as HTMLElement;
+  if (tabGroup) {
+    tabGroup.classList.remove('drag-over', 'drag-enter');
+  }
   
   if (event.dataTransfer) {
     try {
       const data = JSON.parse(event.dataTransfer.getData('application/json'));
-      const targetIndex = props.group.tabs.findIndex(tab => tab.id === targetTab.id);
       
-      if (data.tabId !== targetTab.id) {
-        tabGroupsStore.moveTabToGroup(data.tabId, props.group.id, targetIndex);
+      // 处理文件树节点拖拽
+      if (data.type === 'file-tree-node' && data.nodeType === 'file') {
+        // 检查当前组是否已存在相同文件的标签页
+        const existingTab = props.group.tabs.find(tab => tab.type === 'editor' && tab.filePath === data.nodePath);
+        if (existingTab) {
+          // 如果已存在，激活该标签页
+          tabGroupsStore.setActiveTab(existingTab.id, props.group.id);
+          return;
+        }
+        
+        const targetIndex = props.group.tabs.findIndex(tab => tab.id === targetTab.id);
+        
+        // 创建新的编辑器标签页
+        const newTab = {
+          id: `tab_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          title: data.nodeName,
+          type: 'editor',
+          filePath: data.nodePath,
+          content: '',
+          isActive: true,
+          isDirty: false,
+          lastModified: new Date(),
+          metadata: {}
+        };
+        
+        // 添加到当前组的指定位置
+        tabGroupsStore.addTabToGroup(newTab, props.group.id);
+        return;
+      }
+      
+      // 处理标签页拖拽
+      if (data.tabId) {
+        const targetIndex = props.group.tabs.findIndex(tab => tab.id === targetTab.id);
+        
+        if (data.tabId !== targetTab.id) {
+          tabGroupsStore.moveTabToGroup(data.tabId, props.group.id, targetIndex);
+        }
       }
     } catch (error) {
       console.error('Failed to parse drag data:', error);
@@ -386,20 +493,518 @@ const handleDrop = (targetTab: any, event: DragEvent) => {
 
 const handleDropToEmpty = (event: DragEvent) => {
   event.preventDefault();
+  event.stopPropagation();
+  
+  // 清理超时
+  if (dragTimeout) {
+    clearTimeout(dragTimeout);
+    dragTimeout = null;
+  }
+  
+  // 清理整个标签组的拖拽效果
+  const tabGroup = event.currentTarget?.closest('.tab-group') as HTMLElement;
+  if (tabGroup) {
+    tabGroup.classList.remove('drag-over', 'drag-enter');
+  }
   
   if (event.dataTransfer) {
     try {
       const data = JSON.parse(event.dataTransfer.getData('application/json'));
-      tabGroupsStore.moveTabToGroup(data.tabId, props.group.id);
+      
+      // 处理文件树节点拖拽
+      if (data.type === 'file-tree-node' && data.nodeType === 'file') {
+        // 检查当前组是否已存在相同文件的标签页
+        const existingTab = props.group.tabs.find(tab => tab.type === 'editor' && tab.filePath === data.nodePath);
+        if (existingTab) {
+          // 如果已存在，激活该标签页
+          tabGroupsStore.setActiveTab(existingTab.id, props.group.id);
+          return;
+        }
+        
+        // 创建新的编辑器标签页
+        const newTab = {
+          id: `tab_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          title: data.nodeName,
+          type: 'editor',
+          filePath: data.nodePath,
+          content: '',
+          isActive: true,
+          isDirty: false,
+          lastModified: new Date(),
+          metadata: {}
+        };
+        
+        // 添加到当前组
+        tabGroupsStore.addTabToGroup(newTab, props.group.id);
+        return;
+      }
+      
+      // 处理标签页拖拽
+      if (data.tabId) {
+        tabGroupsStore.moveTabToGroup(data.tabId, props.group.id);
+      }
     } catch (error) {
       console.error('Failed to parse drag data:', error);
     }
   }
 };
 
+const handleDropToContent = (event: DragEvent) => {
+  event.preventDefault();
+  event.stopPropagation();
+  
+  // 清理超时
+  if (dragTimeout) {
+    clearTimeout(dragTimeout);
+    dragTimeout = null;
+  }
+  
+  // 清理标签组的拖拽效果
+  const tabGroup = event.currentTarget?.closest('.tab-group') as HTMLElement;
+  if (tabGroup) {
+    tabGroup.classList.remove('drag-over', 'drag-enter');
+  }
+  
+  if (event.dataTransfer) {
+    try {
+      const data = JSON.parse(event.dataTransfer.getData('application/json'));
+      
+      // 处理文件树节点拖拽
+      if (data.type === 'file-tree-node' && data.nodeType === 'file') {
+        // 检查当前组是否已存在相同文件的标签页
+        const existingTab = props.group.tabs.find(tab => tab.type === 'editor' && tab.filePath === data.nodePath);
+        if (existingTab) {
+          // 如果已存在，激活该标签页
+          tabGroupsStore.setActiveTab(existingTab.id, props.group.id);
+          return;
+        }
+        
+        // 创建新的编辑器标签页
+        const newTab = {
+          id: `tab_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          title: data.nodeName,
+          type: 'editor',
+          filePath: data.nodePath,
+          content: '',
+          isActive: true,
+          isDirty: false,
+          lastModified: new Date(),
+          metadata: {}
+        };
+        
+        // 添加到当前组
+        tabGroupsStore.addTabToGroup(newTab, props.group.id);
+        return;
+      }
+      
+      // 处理标签页拖拽
+      if (data.tabId) {
+        tabGroupsStore.moveTabToGroup(data.tabId, props.group.id);
+      }
+    } catch (error) {
+      console.error('Failed to parse drag data:', error);
+    }
+  }
+};
+
+// 标签右键菜单相关
+const tabContextMenuVisible = ref(false);
+const tabContextMenuPosition = ref({ x: 0, y: 0 });
+const currentContextTab = ref<any>(null);
+
 const handleTabContextMenu = (tab: any, event: MouseEvent) => {
-  // TODO: 实现右键菜单
-  console.log('Tab context menu:', tab, event);
+  event.preventDefault();
+  event.stopPropagation();
+  
+  currentContextTab.value = tab;
+  tabContextMenuPosition.value = {
+    x: event.clientX,
+    y: event.clientY
+  };
+  tabContextMenuVisible.value = true;
+};
+
+// 标签右键菜单项
+const tabContextMenuItems = computed((): ContextMenuItem[] => {
+  if (!currentContextTab.value) return [];
+  
+  const tab = currentContextTab.value;
+  const items: ContextMenuItem[] = [];
+  
+  // 基础操作
+  items.push(
+    {
+      label: '关闭',
+      icon: '❌',
+      shortcut: 'Ctrl+W',
+      action: () => closeTab(tab.id)
+    }
+  );
+  
+  // 如果有多个标签页，显示关闭其他选项
+  if (props.group.tabs.length > 1) {
+    items.push(
+      {
+        label: '关闭其他',
+        icon: '🔒',
+        action: () => closeOtherTabs(tab.id)
+      },
+      {
+        label: '关闭所有',
+        icon: '🗑️',
+        danger: true,
+        action: () => closeAllTabs()
+      }
+    );
+  }
+  
+  items.push({ separator: true });
+  
+  // 复制相关
+  if (tab.type === 'editor' && tab.filePath) {
+    items.push(
+      {
+        label: '复制文件路径',
+        icon: '📋',
+        action: () => copyFilePath(tab.filePath)
+      },
+      {
+        label: '复制文件名',
+        icon: '📄',
+        action: () => copyFileName(tab.title)
+      }
+    );
+  }
+  
+  // 标签页操作
+  items.push(
+    {
+      label: '复制标签页',
+      icon: '📋',
+      action: () => duplicateTab(tab)
+    }
+  );
+  
+  // 如果是编辑器标签页，添加更多选项
+  if (tab.type === 'editor') {
+    items.push({ separator: true });
+    items.push(
+      {
+        label: '向下拆分',
+        icon: '⬇️',
+        action: () => splitTab(tab, 'vertical')
+      },
+      {
+        label: '向右拆分',
+        icon: '➡️',
+        action: () => splitTab(tab, 'horizontal')
+      },
+      {
+        label: '在文件管理器中显示',
+        icon: '📂',
+        action: () => showInExplorer(tab.filePath)
+      }
+    );
+  }
+  
+  return items;
+});
+
+// 菜单项动作
+const closeTab = (tabId: string) => {
+  tabGroupsStore.closeTab(tabId, props.group.id);
+};
+
+const closeOtherTabs = (keepTabId: string) => {
+  const otherTabs = props.group.tabs.filter(tab => tab.id !== keepTabId);
+  otherTabs.forEach(tab => {
+    if (tab.isDirty) {
+      // 如果有未保存的更改，需要确认
+      pendingCloseTab.value = tab;
+      showSaveDialog.value = true;
+    } else {
+      tabGroupsStore.closeTab(tab.id, props.group.id);
+    }
+  });
+};
+
+const closeAllTabs = () => {
+  const dirtyTabs = props.group.tabs.filter(tab => tab.isDirty);
+  if (dirtyTabs.length > 0) {
+    // 如果有未保存的更改，需要确认
+    pendingCloseTab.value = dirtyTabs[0];
+    showSaveDialog.value = true;
+  } else {
+    // 关闭所有标签页
+    props.group.tabs.forEach(tab => {
+      tabGroupsStore.closeTab(tab.id, props.group.id);
+    });
+  }
+};
+
+const copyFilePath = async (filePath: string) => {
+  try {
+    await navigator.clipboard.writeText(filePath);
+    console.log('文件路径已复制到剪贴板');
+  } catch (error) {
+    console.error('复制文件路径失败:', error);
+  }
+};
+
+const copyFileName = async (fileName: string) => {
+  try {
+    await navigator.clipboard.writeText(fileName);
+    console.log('文件名已复制到剪贴板');
+  } catch (error) {
+    console.error('复制文件名失败:', error);
+  }
+};
+
+const duplicateTab = (tab: any) => {
+  // 复制标签页到当前组
+  tabGroupsStore.addTabToGroup({
+    type: tab.type,
+    title: tab.title + ' (副本)',
+    filePath: tab.filePath,
+    content: tab.content
+  }, props.group.id);
+};
+
+const splitTab = (tab: any, direction: 'vertical' | 'horizontal') => {
+  console.log('Split tab called:', { tab: tab.id, direction, groupId: props.group.id });
+  
+  // 直接拆分当前组，splitGroup 会自动处理标签页的移动和布局
+  const newGroupId = tabGroupsStore.splitGroup(props.group.id, {
+    direction: direction,
+    ratio: 0.5
+  });
+  
+  console.log('Split result - new group ID:', newGroupId);
+  
+  if (newGroupId) {
+    console.log('Split successful, new group created');
+  } else {
+    console.log('Split failed');
+  }
+};
+
+const showInExplorer = async (filePath: string) => {
+  try {
+    const success = await window.electronAPI.showFileInExplorer(filePath);
+    if (success) {
+      console.log('文件已在文件管理器中显示:', filePath);
+    } else {
+      console.error('无法在文件管理器中显示文件');
+    }
+  } catch (error) {
+    console.error('显示文件失败:', error);
+  }
+};
+
+// 标签条专用的拖拽处理函数
+const handleTabDragOver = (event: DragEvent) => {
+  event.preventDefault();
+  event.stopPropagation();
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move';
+  }
+  
+  // 为整个标签组添加拖拽效果
+  const tabGroup = event.currentTarget?.closest('.tab-group') as HTMLElement;
+  if (tabGroup && !tabGroup.classList.contains('drag-over')) {
+    tabGroup.classList.add('drag-over');
+  }
+};
+
+const handleTabDragEnter = (event: DragEvent) => {
+  event.preventDefault();
+  event.stopPropagation();
+  
+  // 为整个标签组添加拖拽进入效果
+  const tabGroup = event.currentTarget?.closest('.tab-group') as HTMLElement;
+  if (tabGroup && !tabGroup.classList.contains('drag-enter')) {
+    tabGroup.classList.add('drag-enter');
+  }
+};
+
+const handleTabDragLeave = (event: DragEvent) => {
+  event.stopPropagation();
+  
+  // 清理超时
+  if (dragTimeout) {
+    clearTimeout(dragTimeout);
+    dragTimeout = null;
+  }
+  
+  // 清理标签组的拖拽效果
+  const tabGroup = event.currentTarget?.closest('.tab-group') as HTMLElement;
+  if (tabGroup) {
+    tabGroup.classList.remove('drag-over', 'drag-enter');
+  }
+};
+
+const handleTabDrop = (targetTab: any, event: DragEvent) => {
+  event.preventDefault();
+  event.stopPropagation();
+  
+  // 清理超时
+  if (dragTimeout) {
+    clearTimeout(dragTimeout);
+    dragTimeout = null;
+  }
+  
+  // 清理标签组的拖拽效果
+  const tabGroup = event.currentTarget?.closest('.tab-group') as HTMLElement;
+  if (tabGroup) {
+    tabGroup.classList.remove('drag-over', 'drag-enter');
+  }
+  
+  if (event.dataTransfer) {
+    try {
+      const data = JSON.parse(event.dataTransfer.getData('application/json'));
+      
+      // 处理文件树节点拖拽
+      if (data.type === 'file-tree-node' && data.nodeType === 'file') {
+        // 检查当前组是否已存在相同文件的标签页
+        const existingTab = props.group.tabs.find(tab => tab.type === 'editor' && tab.filePath === data.nodePath);
+        if (existingTab) {
+          // 如果已存在，激活该标签页
+          tabGroupsStore.setActiveTab(existingTab.id, props.group.id);
+          return;
+        }
+        
+        const targetIndex = props.group.tabs.findIndex(tab => tab.id === targetTab.id);
+        
+        // 创建新的编辑器标签页
+        const newTab = {
+          id: `tab_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          title: data.nodeName,
+          type: 'editor',
+          filePath: data.nodePath,
+          content: '',
+          isActive: true,
+          isDirty: false,
+          lastModified: new Date(),
+          metadata: {}
+        };
+        
+        // 添加到当前组的指定位置
+        tabGroupsStore.addTabToGroup(newTab, props.group.id);
+        return;
+      }
+      
+      // 处理标签页拖拽
+      if (data.tabId) {
+        const targetIndex = props.group.tabs.findIndex(tab => tab.id === targetTab.id);
+        
+        if (data.tabId !== targetTab.id) {
+          tabGroupsStore.moveTabToGroup(data.tabId, props.group.id, targetIndex);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to parse drag data:', error);
+    }
+  }
+};
+
+// 标签头部的拖拽处理函数
+const handleTabHeaderDragOver = (event: DragEvent) => {
+  event.preventDefault();
+  event.stopPropagation();
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move';
+  }
+  
+  // 为整个标签组添加拖拽效果
+  const tabGroup = event.currentTarget?.closest('.tab-group') as HTMLElement;
+  if (tabGroup && !tabGroup.classList.contains('drag-over')) {
+    tabGroup.classList.add('drag-over');
+  }
+};
+
+const handleTabHeaderDragEnter = (event: DragEvent) => {
+  event.preventDefault();
+  event.stopPropagation();
+  
+  // 为整个标签组添加拖拽进入效果
+  const tabGroup = event.currentTarget?.closest('.tab-group') as HTMLElement;
+  if (tabGroup && !tabGroup.classList.contains('drag-enter')) {
+    tabGroup.classList.add('drag-enter');
+  }
+};
+
+const handleTabHeaderDragLeave = (event: DragEvent) => {
+  event.stopPropagation();
+  
+  // 清理超时
+  if (dragTimeout) {
+    clearTimeout(dragTimeout);
+    dragTimeout = null;
+  }
+  
+  // 清理标签组的拖拽效果
+  const tabGroup = event.currentTarget?.closest('.tab-group') as HTMLElement;
+  if (tabGroup) {
+    tabGroup.classList.remove('drag-over', 'drag-enter');
+  }
+};
+
+const handleTabHeaderDrop = (event: DragEvent) => {
+  event.preventDefault();
+  event.stopPropagation();
+  
+  // 清理超时
+  if (dragTimeout) {
+    clearTimeout(dragTimeout);
+    dragTimeout = null;
+  }
+  
+  // 清理标签组的拖拽效果
+  const tabGroup = event.currentTarget?.closest('.tab-group') as HTMLElement;
+  if (tabGroup) {
+    tabGroup.classList.remove('drag-over', 'drag-enter');
+  }
+  
+  if (event.dataTransfer) {
+    try {
+      const data = JSON.parse(event.dataTransfer.getData('application/json'));
+      
+      // 处理文件树节点拖拽
+      if (data.type === 'file-tree-node' && data.nodeType === 'file') {
+        // 检查当前组是否已存在相同文件的标签页
+        const existingTab = props.group.tabs.find(tab => tab.type === 'editor' && tab.filePath === data.nodePath);
+        if (existingTab) {
+          // 如果已存在，激活该标签页
+          tabGroupsStore.setActiveTab(existingTab.id, props.group.id);
+          return;
+        }
+        
+        // 创建新的编辑器标签页
+        const newTab = {
+          id: `tab_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          title: data.nodeName,
+          type: 'editor',
+          filePath: data.nodePath,
+          content: '',
+          isActive: true,
+          isDirty: false,
+          lastModified: new Date(),
+          metadata: {}
+        };
+        
+        // 添加到当前组
+        tabGroupsStore.addTabToGroup(newTab, props.group.id);
+        return;
+      }
+      
+      // 处理标签页拖拽
+      if (data.tabId) {
+        tabGroupsStore.moveTabToGroup(data.tabId, props.group.id);
+      }
+    } catch (error) {
+      console.error('Failed to parse drag data:', error);
+    }
+  }
 };
 
 // 分区大小调整
@@ -553,5 +1158,52 @@ const handleResizerHover = (isHover: boolean, event?: MouseEvent) => {
 /* 拖拽条样式增强 */
 .tab-group [style*="backgroundColor"]:hover {
   transition: all 0.2s ease;
+}
+
+/* 拖拽效果样式 - 标签组整体效果 */
+.tab-group.drag-over {
+  background-color: rgba(59, 130, 246, 0.08) !important;
+  border: 2px dashed #3b82f6 !important;
+  position: relative;
+  z-index: 10;
+  transition: all 0.15s ease;
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.3);
+}
+
+.tab-group.drag-enter {
+  background-color: rgba(59, 130, 246, 0.12) !important;
+  border: 2px solid #3b82f6 !important;
+  position: relative;
+  z-index: 10;
+  transition: all 0.15s ease;
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.4);
+}
+
+/* 标签条区域的拖拽效果 */
+.tab-group .tab-header.drag-over,
+.tab-group .tab-header.drag-enter {
+  background-color: rgba(59, 130, 246, 0.15) !important;
+  border-bottom: 2px solid #3b82f6 !important;
+}
+
+/* 标签页内容的拖拽效果 */
+.tab-group .tab-content.drag-over,
+.tab-group .tab-content.drag-enter {
+  background-color: rgba(59, 130, 246, 0.05) !important;
+  border: 1px dashed #3b82f6 !important;
+}
+
+/* 单个标签页的拖拽效果 */
+.tab-group [draggable="true"].drag-over,
+.tab-group [draggable="true"].drag-enter {
+  background-color: rgba(59, 130, 246, 0.2) !important;
+  border: 2px solid #3b82f6 !important;
+  transform: scale(1.02);
+}
+
+/* 标签页拖拽时的样式 */
+.tab-group [draggable="true"]:active {
+  opacity: 0.7;
+  /* 移除旋转效果 */
 }
 </style>

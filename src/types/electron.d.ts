@@ -16,6 +16,7 @@ export interface ElectronAPI {
   setWorkspacePath: (path: string) => Promise<boolean>;
   selectWorkspaceFolder: () => Promise<string | null>;
   openWorkspaceInExplorer: () => Promise<boolean>;
+  showFileInExplorer: (filePath: string) => Promise<boolean>;
   readFile: (filePath: string) => Promise<string>;
   writeFile: (filePath: string, content: string) => Promise<boolean>;
   createDirectory: (dirPath: string) => Promise<boolean>;
@@ -23,6 +24,7 @@ export interface ElectronAPI {
   deleteFile: (filePath: string) => Promise<boolean>;
   renameFile: (oldPath: string, newPath: string) => Promise<boolean>;
   pathExists: (filePath: string) => Promise<boolean>;
+  copyDirectory: (sourcePath: string, targetPath: string) => Promise<boolean>;
   importMarkdownFile: (filePath: string) => Promise<any>;
   exportMarkdownFile: (noteId: number, filePath: string) => Promise<boolean>;
   
@@ -30,6 +32,8 @@ export interface ElectronAPI {
   getAllSettings: () => Promise<any>;
   updateSetting: (key: string, value: any) => Promise<boolean>;
   getSetting: (key: string) => Promise<any>;
+  loadSettings: () => Promise<any>;
+  saveSettings: (settings: any) => Promise<boolean>;
   
   // AI操作
   aiSemanticSearch: (query: string) => Promise<any>;

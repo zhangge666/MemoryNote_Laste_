@@ -2,6 +2,7 @@
   <div class="w-16 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex flex-col h-full">
     <!-- 导航按钮区域 -->
     <div class="flex flex-col items-center py-4 space-y-2">
+      <!-- 系统导航按钮 -->
       <button
         v-for="item in navigationItems"
         :key="item.id"
@@ -14,22 +15,28 @@
         ]"
         :title="item.title"
       >
-        <!-- 文档图标 -->
-        <svg v-if="item.id === 'documents'" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-        </svg>
-        <!-- 日记图标 -->
-        <svg v-else-if="item.id === 'diary'" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-        </svg>
-        <!-- 复习图标 -->
-        <svg v-else-if="item.id === 'review'" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-        </svg>
-        <!-- 搜索图标 -->
-        <svg v-else-if="item.id === 'search'" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-        </svg>
+        <!-- 系统图标 -->
+        <component :is="getSystemIcon(item.id)" class="w-5 h-5" />
+      </button>
+
+      <!-- 分隔线 -->
+      <div v-if="pluginPanels.length > 0" class="w-8 border-t border-gray-200 dark:border-gray-700"></div>
+
+      <!-- 插件导航按钮 -->
+      <button
+        v-for="panel in pluginPanels"
+        :key="panel.id"
+        @click="handlePluginNavigation(panel.id)"
+        class="w-10 h-10 flex items-center justify-center rounded-lg transition-colors"
+        :class="[
+          appStore.currentView === panel.id
+            ? 'bg-primary-100 dark:bg-primary-900 text-primary-600 dark:text-primary-400'
+            : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+        ]"
+        :title="panel.title"
+      >
+        <!-- 插件图标 -->
+        <div v-html="panel.icon" class="w-5 h-5"></div>
       </button>
     </div>
     
@@ -86,12 +93,28 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, h } from 'vue';
 import { useAppStore } from '../../stores/app';
 import { useTabGroupsStore } from '@/stores/tabGroups';
+import { usePluginService } from '../../services/plugins/pluginService';
 
 const appStore = useAppStore();
 const tabGroupsStore = useTabGroupsStore();
+const pluginService = usePluginService();
+
+// 获取插件面板
+const pluginPanels = computed(() => {
+  try {
+    // 获取计算属性的值
+    const panels = pluginService.sidebarPanels?.value || pluginService.sidebarPanels || []
+    // 确保是数组并过滤掉无效的面板
+    const validPanels = Array.isArray(panels) ? panels : []
+    return validPanels.filter(panel => panel && panel.id && panel.title)
+  } catch (error) {
+    console.warn('Error accessing plugin panels:', error)
+    return []
+  }
+});
 
 // 计算属性：判断是否应该高亮文档图标
 const isDocumentActive = computed(() => {
@@ -128,6 +151,65 @@ const navigationItems = [
   }
 ];
 
+// 获取系统图标组件
+const getSystemIcon = (itemId: string) => {
+  const icons = {
+    documents: () => h('svg', {
+      class: 'w-5 h-5',
+      fill: 'none',
+      stroke: 'currentColor',
+      viewBox: '0 0 24 24'
+    }, [
+      h('path', {
+        'stroke-linecap': 'round',
+        'stroke-linejoin': 'round',
+        'stroke-width': '2',
+        d: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'
+      })
+    ]),
+    diary: () => h('svg', {
+      class: 'w-5 h-5',
+      fill: 'none',
+      stroke: 'currentColor',
+      viewBox: '0 0 24 24'
+    }, [
+      h('path', {
+        'stroke-linecap': 'round',
+        'stroke-linejoin': 'round',
+        'stroke-width': '2',
+        d: 'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z'
+      })
+    ]),
+    review: () => h('svg', {
+      class: 'w-5 h-5',
+      fill: 'none',
+      stroke: 'currentColor',
+      viewBox: '0 0 24 24'
+    }, [
+      h('path', {
+        'stroke-linecap': 'round',
+        'stroke-linejoin': 'round',
+        'stroke-width': '2',
+        d: 'M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01'
+      })
+    ]),
+    search: () => h('svg', {
+      class: 'w-5 h-5',
+      fill: 'none',
+      stroke: 'currentColor',
+      viewBox: '0 0 24 24'
+    }, [
+      h('path', {
+        'stroke-linecap': 'round',
+        'stroke-linejoin': 'round',
+        'stroke-width': '2',
+        d: 'M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z'
+      })
+    ])
+  }
+  return icons[itemId as keyof typeof icons] || null
+}
+
 const handleNavigation = (viewId: string) => {
   appStore.setCurrentView(viewId);
   
@@ -137,6 +219,15 @@ const handleNavigation = (viewId: string) => {
     type: viewId as any,
     content: '',
   });
+};
+
+const handlePluginNavigation = (panelId: string) => {
+  appStore.setCurrentView(panelId);
+  
+  // 确保左侧边栏可见并设置为插件面板
+  if (!appStore.leftSidebarVisible) {
+    appStore.toggleLeftSidebar();
+  }
 };
 
 const openSettings = () => {

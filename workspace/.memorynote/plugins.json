@@ -1,0 +1,72 @@
+{
+  "pluginStates": {
+    "note-organizer": {
+      "id": "note-organizer",
+      "enabled": true,
+      "autoLoad": true,
+      "lastLoaded": 1758877516319
+    }
+  },
+  "installedPlugins": {
+    "note-organizer": {
+      "id": "note-organizer",
+      "version": "1.0.0",
+      "installPath": "D:\\code\\MemoryNote_Laste_-main\\workspace/.memorynote/note-organizer",
+      "installTime": 1758877513942,
+      "enabled": false,
+      "autoLoad": true,
+      "dependencies": [],
+      "manifest": {
+        "id": "note-organizer",
+        "name": "笔记整理器",
+        "version": "1.0.0",
+        "description": "一个帮助你整理和分类笔记的插件，提供标签管理、快速搜索和笔记分组功能",
+        "author": "MemoryNote Team",
+        "main": "index.js",
+        "engines": {
+          "memorynote": "^1.0.0"
+        },
+        "permissions": [
+          "ui.modify",
+          "fs.read",
+          "fs.write"
+        ],
+        "dependencies": [],
+        "activationEvents": [
+          "onStartup"
+        ],
+        "contributes": {
+          "sidebar": [
+            {
+              "id": "note-organizer-panel",
+              "title": "笔记整理",
+              "icon": "organize",
+              "position": 3
+            }
+          ],
+          "commands": [
+            {
+              "id": "note-organizer.organize",
+              "title": "整理笔记",
+              "category": "笔记整理器"
+            },
+            {
+              "id": "note-organizer.addTag",
+              "title": "添加标签",
+              "category": "笔记整理器"
+            }
+          ]
+        },
+        "keywords": [
+          "笔记",
+          "整理",
+          "标签",
+          "分类",
+          "组织"
+        ]
+      }
+    }
+  },
+  "version": "1.0.0",
+  "lastUpdated": 1758877516322
+}

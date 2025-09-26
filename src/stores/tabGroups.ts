@@ -81,6 +81,27 @@ export const useTabGroupsStore = defineStore('tabGroups', () => {
 
   // 添加标签页到指定组
   const addTabToGroup = (tab: Partial<TabState>, groupId?: string): string => {
+    // 对于编辑器类型的标签页，检查是否已存在相同文件的标签页
+    if (tab.type === 'editor' && tab.filePath) {
+      let existingTab: TabState | null = null;
+      let existingGroupId: string | null = null;
+
+      for (const [gId, group] of layout.value.groups) {
+        existingTab = group.tabs.find((t: TabState) => t.type === 'editor' && t.filePath === tab.filePath) || null;
+        if (existingTab) {
+          existingGroupId = gId;
+          break;
+        }
+      }
+
+      // 如果找到已存在的编辑器标签页，切换到它
+      if (existingTab && existingGroupId) {
+        console.log(`Found existing editor tab for file ${tab.filePath} in group ${existingGroupId}, switching to:`, existingTab.id);
+        setActiveTab(existingTab.id, existingGroupId);
+        return existingTab.id;
+      }
+    }
+    
     // 对于非编辑器类型的标签页，检查是否已存在
     if (tab.type !== 'editor') {
       let existingTab: TabState | null = null;
@@ -101,8 +122,6 @@ export const useTabGroupsStore = defineStore('tabGroups', () => {
         return existingTab.id;
       }
     }
-    
-    // 编辑器类型允许在不同分区组中打开同一文件，不做去重检查
 
     // 找到合适的叶子组来添加新标签页
     const targetGroup = findLeafGroupForTab(groupId);
@@ -385,6 +404,63 @@ export const useTabGroupsStore = defineStore('tabGroups', () => {
     });
   };
 
+  // 更新文件路径（当文件被移动或重命名时）
+  const updateFilePath = (oldPath: string, newPath: string) => {
+    for (const [groupId, group] of layout.value.groups) {
+      group.tabs.forEach((tab: TabState) => {
+        if (tab.filePath === oldPath) {
+          tab.filePath = newPath;
+          // 更新标题为新的文件名
+          const fileName = newPath.split('\\').pop() || newPath.split('/').pop() || 'Unknown';
+          tab.title = fileName;
+        }
+      });
+    }
+    console.log(`Updated file path: ${oldPath} -> ${newPath}`);
+  };
+
+  // 关闭文件相关的标签页（当文件被删除时）
+  const closeFileTabs = (filePath: string) => {
+    const tabsToClose: string[] = [];
+    
+    for (const [groupId, group] of layout.value.groups) {
+      group.tabs.forEach((tab: TabState) => {
+        if (tab.filePath === filePath) {
+          tabsToClose.push(tab.id);
+        }
+      });
+    }
+    
+    // 关闭所有相关的标签页
+    tabsToClose.forEach(tabId => {
+      closeTab(tabId);
+    });
+    
+    console.log(`Closed ${tabsToClose.length} tabs for deleted file: ${filePath}`);
+  };
+
+  // 检查文件是否在标签页中打开
+  const isFileOpen = (filePath: string): boolean => {
+    for (const [groupId, group] of layout.value.groups) {
+      const found = group.tabs.find((tab: TabState) => tab.filePath === filePath);
+      if (found) return true;
+    }
+    return false;
+  };
+
+  // 获取文件相关的标签页
+  const getFileTabs = (filePath: string): TabState[] => {
+    const tabs: TabState[] = [];
+    for (const [groupId, group] of layout.value.groups) {
+      group.tabs.forEach((tab: TabState) => {
+        if (tab.filePath === filePath) {
+          tabs.push(tab);
+        }
+      });
+    }
+    return tabs;
+  };
+
   // 初始化布局
   const initializeLayout = () => {
     // 确保根组是一个叶子组，可以直接添加标签页
@@ -423,5 +499,11 @@ export const useTabGroupsStore = defineStore('tabGroups', () => {
     getGroupPath,
     cleanupEmptyGroups,
     initializeLayout,
+    
+    // 文件操作相关方法
+    updateFilePath,
+    closeFileTabs,
+    isFileOpen,
+    getFileTabs,
   };
 });

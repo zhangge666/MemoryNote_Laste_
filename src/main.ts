@@ -213,9 +213,9 @@ ipcMain.handle('search-notes', (_, query) => {
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   initWorkspace();
-  initDatabase();
+  await initDatabase();
   createWindow();
 });
 
@@ -378,6 +378,24 @@ ipcMain.handle('open-workspace-in-explorer', async () => {
   }
 });
 
+// 在文件管理器中显示特定文件
+ipcMain.handle('show-file-in-explorer', async (_, filePath: string) => {
+  try {
+    const { shell } = require('electron');
+    const path = require('path');
+    
+    // 获取文件所在的目录
+    const dirPath = path.dirname(filePath);
+    
+    // 在文件管理器中打开目录并选中文件
+    shell.showItemInFolder(filePath);
+    return true;
+  } catch (error) {
+    console.error('Error showing file in explorer:', error);
+    return false;
+  }
+});
+
 // Settings IPC handlers
 ipcMain.handle('get-all-settings', () => {
   return getAllSettings();
@@ -390,6 +408,31 @@ ipcMain.handle('update-setting', (_, key: string, value: any) => {
 ipcMain.handle('get-setting', (_, key: string) => {
   const settings = getAllSettings();
   return settings[key];
+});
+
+// 新增：加载设置
+ipcMain.handle('load-settings', () => {
+  try {
+    if (fs.existsSync(settingsPath)) {
+      const settingsData = fs.readFileSync(settingsPath, 'utf-8');
+      return JSON.parse(settingsData);
+    }
+    return {};
+  } catch (error) {
+    console.error('Error loading settings:', error);
+    return {};
+  }
+});
+
+// 新增：保存设置
+ipcMain.handle('save-settings', (_, settings: any) => {
+  try {
+    fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2));
+    return true;
+  } catch (error) {
+    console.error('Error saving settings:', error);
+    return false;
+  }
 });
 
 ipcMain.handle('read-file', async (_, filePath: string) => {
@@ -439,6 +482,42 @@ ipcMain.handle('path-exists', async (_, filePath: string) => {
     return fs.existsSync(fullPath);
   } catch (error) {
     console.error('Error checking path existence:', error);
+    return false;
+  }
+});
+
+ipcMain.handle('copy-directory', async (_, sourcePath: string, targetPath: string) => {
+  try {
+    const fullSourcePath = path.isAbsolute(sourcePath) ? sourcePath : path.join(workspacePath, sourcePath);
+    const fullTargetPath = path.isAbsolute(targetPath) ? targetPath : path.join(workspacePath, targetPath);
+    
+    // 确保目标目录存在
+    if (!fs.existsSync(fullTargetPath)) {
+      fs.mkdirSync(fullTargetPath, { recursive: true });
+    }
+    
+    // 递归复制目录
+    const copyRecursive = (src: string, dest: string) => {
+      const stats = fs.statSync(src);
+      
+      if (stats.isDirectory()) {
+        if (!fs.existsSync(dest)) {
+          fs.mkdirSync(dest, { recursive: true });
+        }
+        const files = fs.readdirSync(src);
+        files.forEach(file => {
+          copyRecursive(path.join(src, file), path.join(dest, file));
+        });
+      } else {
+        fs.copyFileSync(src, dest);
+      }
+    };
+    
+    copyRecursive(fullSourcePath, fullTargetPath);
+    console.log(`Directory copied from ${fullSourcePath} to ${fullTargetPath}`);
+    return true;
+  } catch (error) {
+    console.error('Error copying directory:', error);
     return false;
   }
 });

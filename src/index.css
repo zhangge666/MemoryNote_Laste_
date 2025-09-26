@@ -2,6 +2,91 @@
 @tailwind components;
 @tailwind utilities;
 
+/* CSS变量定义 */
+:root {
+  /* 颜色系统 */
+  --color-primary: #3b82f6;
+  --color-primary-dark: #2563eb;
+  --color-primary-light: #dbeafe;
+  
+  --color-secondary: #6b7280;
+  --color-secondary-dark: #4b5563;
+  --color-secondary-light: #f3f4f6;
+  
+  --color-success: #10b981;
+  --color-success-dark: #047857;
+  --color-success-light: #d1fae5;
+  
+  --color-warning: #f59e0b;
+  --color-warning-dark: #d97706;
+  --color-warning-light: #fef3c7;
+  
+  --color-error: #ef4444;
+  --color-error-dark: #dc2626;
+  --color-error-light: #fecaca;
+  
+  /* 背景色 */
+  --bg-primary: #ffffff;
+  --bg-secondary: #f8fafc;
+  --bg-tertiary: #e2e8f0;
+  --bg-hover: #f1f5f9;
+  
+  /* 文本色 */
+  --text-primary: #1e293b;
+  --text-secondary: #64748b;
+  --text-tertiary: #94a3b8;
+  
+  /* 边框色 */
+  --border-color: #e2e8f0;
+  --border-hover: #cbd5e1;
+  
+  /* 阴影 */
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+/* 暗色主题 */
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* 颜色系统 */
+    --color-primary: #3b82f6;
+    --color-primary-dark: #1d4ed8;
+    --color-primary-light: #1e3a8a;
+    
+    --color-secondary: #9ca3af;
+    --color-secondary-dark: #6b7280;
+    --color-secondary-light: #374151;
+    
+    --color-success: #10b981;
+    --color-success-dark: #059669;
+    --color-success-light: #064e3b;
+    
+    --color-warning: #f59e0b;
+    --color-warning-dark: #d97706;
+    --color-warning-light: #78350f;
+    
+    --color-error: #ef4444;
+    --color-error-dark: #dc2626;
+    --color-error-light: #7f1d1d;
+    
+    /* 背景色 */
+    --bg-primary: #0f172a;
+    --bg-secondary: #1e293b;
+    --bg-tertiary: #334155;
+    --bg-hover: #475569;
+    
+    /* 文本色 */
+    --text-primary: #f1f5f9;
+    --text-secondary: #cbd5e1;
+    --text-tertiary: #94a3b8;
+    
+    /* 边框色 */
+    --border-color: #334155;
+    --border-hover: #475569;
+  }
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica,
     Arial, sans-serif;
@@ -9,6 +94,8 @@ body {
   padding: 0;
   height: 100vh;
   overflow: hidden;
+  background: var(--bg-primary);
+  color: var(--text-primary);
 }
 
 #app {

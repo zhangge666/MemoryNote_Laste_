@@ -1,0 +1,35 @@
+{
+  "name": "note-organizer",
+  "version": "1.0.0",
+  "description": "一个帮助你整理和分类笔记的插件，提供标签管理、快速搜索和笔记分组功能",
+  "main": "index.js",
+  "scripts": {
+    "build": "echo 'Build script not configured'",
+    "test": "echo 'Test script not configured'",
+    "dev": "echo 'Development mode - No build required for JavaScript plugins'"
+  },
+  "keywords": [
+    "memorynote",
+    "plugin",
+    "notes",
+    "organize",
+    "tags",
+    "productivity"
+  ],
+  "author": "MemoryNote Team",
+  "license": "MIT",
+  "engines": {
+    "memorynote": "^1.0.0"
+  },
+  "devDependencies": {},
+  "dependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/memorynote/note-organizer-plugin"
+  },
+  "bugs": {
+    "url": "https://github.com/memorynote/note-organizer-plugin/issues"
+  },
+  "homepage": "https://github.com/memorynote/note-organizer-plugin#readme"
+}
+

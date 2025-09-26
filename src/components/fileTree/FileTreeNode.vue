@@ -11,6 +11,14 @@
       ]"
       :style="{ paddingLeft: `${level * 16 + 8}px` }"
       @click="handleNodeClick"
+      draggable="true"
+      @dragstart="handleDragStart"
+      @dragover.prevent="handleDragOver"
+      @dragenter.prevent="handleDragEnter"
+      @dragleave="handleDragLeave"
+      @drop="handleDrop"
+      @dragend="handleDragEnd"
+      @contextmenu="handleContextMenu"
     >
       <!-- 展开/折叠图标 -->
       <div class="flex items-center mr-1">
@@ -125,14 +133,28 @@
         @rename="$emit('rename', $event, $event)"
         @start-edit="$emit('start-edit', $event)"
         @open="$emit('open', $event)"
+        @drag-start="$emit('drag-start', $event, $event)"
+        @drag-over="$emit('drag-over', $event, $event)"
+        @drag-enter="$emit('drag-enter', $event, $event)"
+        @drop="$emit('drop', $event, $event)"
       />
     </div>
+
+    <!-- 右键菜单 -->
+    <ContextMenu
+      :visible="contextMenuVisible"
+      :position="contextMenuPosition"
+      :items="contextMenuItems"
+      @close="contextMenuVisible = false"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, ref, watch, nextTick } from 'vue';
 import type { FileTreeNode } from '../../types/fileTree';
+import ContextMenu from '../common/ContextMenu.vue';
+import type { ContextMenuItem } from '../common/ContextMenu.vue';
 
 interface Props {
   node: FileTreeNode;
@@ -146,6 +168,10 @@ interface Emits {
   (e: 'rename', nodeId: string, newName: string): void;
   (e: 'start-edit', nodeId: string): void;
   (e: 'open', nodeId: string): void;
+  (e: 'drag-start', nodeId: string, event: DragEvent): void;
+  (e: 'drag-over', nodeId: string, event: DragEvent): void;
+  (e: 'drag-enter', nodeId: string, event: DragEvent): void;
+  (e: 'drop', nodeId: string, event: DragEvent): void;
 }
 
 const props = defineProps<Props>();
@@ -270,4 +296,251 @@ const formatFileSize = (bytes: number): string => {
   
   return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
 };
+
+// 拖拽事件处理
+const handleDragStart = (event: DragEvent) => {
+  if (event.dataTransfer) {
+    event.dataTransfer.setData('application/json', JSON.stringify({
+      type: 'file-tree-node',
+      nodeId: props.node.id,
+      nodeType: props.node.type,
+      nodeName: props.node.name,
+      nodePath: props.node.path
+    }));
+    event.dataTransfer.effectAllowed = 'move';
+  }
+  
+  // 添加拖拽开始时的视觉反馈
+  const target = event.currentTarget as HTMLElement;
+  if (target) {
+    target.classList.add('dragging');
+  }
+  
+  emit('drag-start', props.node.id, event);
+};
+
+const handleDragOver = (event: DragEvent) => {
+  event.preventDefault();
+  if (event.dataTransfer) {
+    event.dataTransfer.dropEffect = 'move';
+  }
+  
+  // 添加拖拽悬停效果
+  const target = event.currentTarget as HTMLElement;
+  if (target && !target.classList.contains('drag-over')) {
+    target.classList.add('drag-over');
+  }
+  
+  emit('drag-over', props.node.id, event);
+};
+
+const handleDragEnter = (event: DragEvent) => {
+  event.preventDefault();
+  
+  // 添加拖拽进入效果
+  const target = event.currentTarget as HTMLElement;
+  if (target && !target.classList.contains('drag-enter')) {
+    target.classList.add('drag-enter');
+  }
+  
+  emit('drag-enter', props.node.id, event);
+};
+
+const handleDragLeave = (event: DragEvent) => {
+  // 清理拖拽效果
+  const target = event.currentTarget as HTMLElement;
+  if (target) {
+    target.classList.remove('drag-over', 'drag-enter');
+  }
+};
+
+const handleDrop = (event: DragEvent) => {
+  event.preventDefault();
+  
+  // 清理拖拽效果
+  const target = event.currentTarget as HTMLElement;
+  if (target) {
+    target.classList.remove('drag-over', 'drag-enter');
+  }
+  
+  emit('drop', props.node.id, event);
+};
+
+// 拖拽结束时的清理
+const handleDragEnd = (event: DragEvent) => {
+  const target = event.currentTarget as HTMLElement;
+  if (target) {
+    target.classList.remove('dragging', 'drag-over', 'drag-enter');
+  }
+};
+
+// 右键菜单相关
+const contextMenuVisible = ref(false);
+const contextMenuPosition = ref({ x: 0, y: 0 });
+
+// 右键菜单处理
+const handleContextMenu = (event: MouseEvent) => {
+  event.preventDefault();
+  event.stopPropagation();
+  
+  contextMenuPosition.value = {
+    x: event.clientX,
+    y: event.clientY
+  };
+  contextMenuVisible.value = true;
+};
+
+// 右键菜单项
+const contextMenuItems = computed((): ContextMenuItem[] => {
+  const items: ContextMenuItem[] = [];
+  
+  if (props.node.type === 'folder') {
+    // 文件夹菜单
+    items.push(
+      {
+        label: '新建文件',
+        icon: '📄',
+        action: () => createNewFile()
+      },
+      {
+        label: '新建文件夹',
+        icon: '📁',
+        action: () => createNewFolder()
+      },
+      { separator: true },
+      {
+        label: '重命名',
+        icon: '✏️',
+        shortcut: 'F2',
+        action: () => startEdit()
+      },
+      {
+        label: '删除',
+        icon: '🗑️',
+        danger: true,
+        action: () => deleteNode()
+      },
+      { separator: true },
+      {
+        label: '复制路径',
+        icon: '📋',
+        action: () => copyPath()
+      },
+      {
+        label: '在文件管理器中显示',
+        icon: '📂',
+        action: () => showInExplorer()
+      }
+    );
+  } else {
+    // 文件菜单
+    items.push(
+      {
+        label: '打开',
+        icon: '👁️',
+        shortcut: 'Enter',
+        action: () => openFile()
+      },
+      { separator: true },
+      {
+        label: '重命名',
+        icon: '✏️',
+        shortcut: 'F2',
+        action: () => startEdit()
+      },
+      {
+        label: '删除',
+        icon: '🗑️',
+        danger: true,
+        action: () => deleteNode()
+      },
+      { separator: true },
+      {
+        label: '复制路径',
+        icon: '📋',
+        action: () => copyPath()
+      },
+      {
+        label: '在文件管理器中显示',
+        icon: '📂',
+        action: () => showInExplorer()
+      }
+    );
+  }
+  
+  return items;
+});
+
+// 菜单项动作
+const createNewFile = () => {
+  // 这里需要实现新建文件逻辑
+  console.log('创建新文件');
+};
+
+const createNewFolder = () => {
+  // 这里需要实现新建文件夹逻辑
+  console.log('创建新文件夹');
+};
+
+const openFile = () => {
+  emit('open', props.node.id);
+};
+
+const startEdit = () => {
+  emit('start-edit', props.node.id);
+};
+
+const deleteNode = () => {
+  if (confirm(`确定要删除 "${props.node.name}" 吗？`)) {
+    emit('delete', props.node.id);
+  }
+};
+
+const copyPath = async () => {
+  try {
+    await navigator.clipboard.writeText(props.node.path);
+    console.log('路径已复制到剪贴板');
+  } catch (error) {
+    console.error('复制路径失败:', error);
+  }
+};
+
+const showInExplorer = async () => {
+  try {
+    const success = await window.electronAPI.showFileInExplorer(props.node.path);
+    if (success) {
+      console.log('文件已在文件管理器中显示:', props.node.path);
+    } else {
+      console.error('无法在文件管理器中显示文件');
+    }
+  } catch (error) {
+    console.error('显示文件失败:', error);
+  }
+};
 </script>
+
+<style scoped>
+/* 文件树拖拽效果样式 */
+.file-tree-node-content.dragging {
+  opacity: 0.6;
+  transform: scale(0.98);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  background-color: rgba(59, 130, 246, 0.1);
+  border: 2px dashed #3b82f6;
+  transition: all 0.2s ease;
+}
+
+.file-tree-node-content.drag-over {
+  background-color: rgba(59, 130, 246, 0.15);
+  border: 2px dashed #3b82f6;
+  box-shadow: 0 0 8px rgba(59, 130, 246, 0.3);
+  transition: all 0.15s ease;
+}
+
+.file-tree-node-content.drag-enter {
+  background-color: rgba(59, 130, 246, 0.2);
+  border: 2px solid #3b82f6;
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.4);
+  transition: all 0.15s ease;
+}
+</style>

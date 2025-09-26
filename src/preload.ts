@@ -20,6 +20,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   setWorkspacePath: (path: string) => ipcRenderer.invoke('set-workspace-path', path),
   selectWorkspaceFolder: () => ipcRenderer.invoke('select-workspace-folder'),
   openWorkspaceInExplorer: () => ipcRenderer.invoke('open-workspace-in-explorer'),
+  showFileInExplorer: (filePath: string) => ipcRenderer.invoke('show-file-in-explorer', filePath),
   readFile: (filePath: string) => ipcRenderer.invoke('read-file', filePath),
   writeFile: (filePath: string, content: string) => ipcRenderer.invoke('write-file', filePath, content),
   createDirectory: (dirPath: string) => ipcRenderer.invoke('create-directory', dirPath),
@@ -27,6 +28,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   deleteFile: (filePath: string) => ipcRenderer.invoke('delete-file', filePath),
   renameFile: (oldPath: string, newPath: string) => ipcRenderer.invoke('rename-file', oldPath, newPath),
   pathExists: (filePath: string) => ipcRenderer.invoke('path-exists', filePath),
+  copyDirectory: (sourcePath: string, targetPath: string) => ipcRenderer.invoke('copy-directory', sourcePath, targetPath),
   importMarkdownFile: (filePath: string) => ipcRenderer.invoke('import-markdown-file', filePath),
   exportMarkdownFile: (noteId: number, filePath: string) => ipcRenderer.invoke('export-markdown-file', noteId, filePath),
 
@@ -34,6 +36,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getAllSettings: () => ipcRenderer.invoke('get-all-settings'),
   updateSetting: (key: string, value: any) => ipcRenderer.invoke('update-setting', key, value),
   getSetting: (key: string) => ipcRenderer.invoke('get-setting', key),
+  loadSettings: () => ipcRenderer.invoke('load-settings'),
+  saveSettings: (settings: any) => ipcRenderer.invoke('save-settings', settings),
 
   // AI operations (placeholder for future implementation)
   aiSemanticSearch: (query: string) => ipcRenderer.invoke('ai-semantic-search', query),

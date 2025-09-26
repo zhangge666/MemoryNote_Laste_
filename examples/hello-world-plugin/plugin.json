@@ -1,0 +1,94 @@
+{
+  "id": "com.memorynote.hello-world",
+  "name": "Hello World Plugin",
+  "version": "1.0.0",
+  "description": "一个简单的示例插件，展示插件系统的基本功能",
+  "author": "MemoryNote Team <support@memorynote.com>",
+  "license": "MIT",
+  "homepage": "https://github.com/memorynote/hello-world-plugin",
+  "repository": "https://github.com/memorynote/hello-world-plugin.git",
+  
+  "engines": {
+    "memorynote": "^1.0.0"
+  },
+  
+  "contributes": {
+    "commands": [
+      {
+        "id": "hello-world.greet",
+        "title": "打招呼",
+        "description": "显示一个友好的问候消息"
+      },
+      {
+        "id": "hello-world.show-time",
+        "title": "显示时间",
+        "description": "显示当前时间"
+      }
+    ],
+    
+    "keybindings": [
+      {
+        "id": "hello-world.greet-binding",
+        "key": "Ctrl+Shift+H",
+        "command": "hello-world.greet",
+        "when": "activeEditor"
+      }
+    ],
+    
+    "sidebar": [
+      {
+        "id": "hello-world.sidebar",
+        "title": "Hello World",
+        "icon": "👋",
+        "component": "HelloWorldSidebar"
+      }
+    ],
+    
+    "themes": [
+      {
+        "id": "hello-world.ocean-theme",
+        "name": "Ocean Theme",
+        "type": "light"
+      }
+    ]
+  },
+  
+  "permissions": [
+    "ui.modify",
+    "ui.dialog",
+    "ui.notification",
+    "system.command"
+  ],
+  
+  "configurationSchema": {
+    "type": "object",
+    "properties": {
+      "greetingMessage": {
+        "type": "string",
+        "default": "Hello, World!",
+        "description": "自定义问候消息"
+      },
+      "showTimestamp": {
+        "type": "boolean",
+        "default": true,
+        "description": "是否在问候消息中显示时间戳"
+      },
+      "theme": {
+        "type": "object",
+        "properties": {
+          "primaryColor": {
+            "type": "string",
+            "default": "#007acc",
+            "description": "主色调"
+          },
+          "backgroundColor": {
+            "type": "string",
+            "default": "#f0f8ff",
+            "description": "背景色"
+          }
+        }
+      }
+    }
+  }
+}
+

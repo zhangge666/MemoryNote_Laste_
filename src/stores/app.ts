@@ -10,6 +10,8 @@ export const useAppStore = defineStore('app', () => {
   const isLeftPanelResizing = ref(false);
   const isRightPanelResizing = ref(false);
   const currentView = ref('documents');
+  const rightPanelContent = ref<'document-info' | 'plugin-details' | null>('document-info');
+  const selectedPluginForDetails = ref<any>(null);
   const isDarkMode = ref(false);
   const workspacePath = ref('');
 
@@ -70,6 +72,21 @@ export const useAppStore = defineStore('app', () => {
     isRightPanelResizing.value = resizing;
   };
 
+  const setRightPanelContent = (content: 'document-info' | 'plugin-details' | null) => {
+    rightPanelContent.value = content;
+  };
+
+  const setSelectedPluginForDetails = (plugin: any) => {
+    selectedPluginForDetails.value = plugin;
+    rightPanelContent.value = 'plugin-details';
+    rightSidebarVisible.value = true;
+  };
+
+  const clearPluginDetails = () => {
+    selectedPluginForDetails.value = null;
+    rightPanelContent.value = 'document-info';
+  };
+
   const initializeApp = async () => {
     // 初始化应用
     console.log('Initializing MemoryNote app...');
@@ -95,6 +112,8 @@ export const useAppStore = defineStore('app', () => {
     isLeftPanelResizing,
     isRightPanelResizing,
     currentView,
+    rightPanelContent,
+    selectedPluginForDetails,
     isDarkMode,
     workspacePath,
     
@@ -113,6 +132,9 @@ export const useAppStore = defineStore('app', () => {
     updateRightPanelWidth,
     setLeftPanelResizing,
     setRightPanelResizing,
+    setRightPanelContent,
+    setSelectedPluginForDetails,
+    clearPluginDetails,
     initializeApp,
   };
 });

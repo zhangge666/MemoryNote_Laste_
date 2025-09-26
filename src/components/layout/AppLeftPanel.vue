@@ -52,21 +52,62 @@
           </div>
         </div>
       </div>
+      
+      <!-- 插件面板内容 -->
+      <div v-else-if="currentPluginPanel" class="h-full">
+        <div ref="pluginPanelContainer" class="h-full"></div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue';
 import { useAppStore } from '../../stores/app';
 import { useTabGroupsStore } from '@/stores/tabGroups';
+import { usePluginService } from '../../services/plugins/pluginService';
 import FileTree from '../fileTree/FileTree.vue';
 
 const appStore = useAppStore();
 const tabGroupsStore = useTabGroupsStore();
+const pluginService = usePluginService();
 
 const notes = ref([]);
 const isResizing = ref(false);
+const pluginPanelContainer = ref<HTMLElement>();
+
+// 计算当前选中的插件面板
+const currentPluginPanel = computed(() => {
+  if (!appStore.currentView) return null;
+  try {
+    const panels = pluginService.sidebarPanels?.value || pluginService.sidebarPanels || []
+    const validPanels = Array.isArray(panels) ? panels : []
+    return validPanels.find(panel => panel && panel.id === appStore.currentView) || null;
+  } catch (error) {
+    console.warn('Error accessing current plugin panel:', error)
+    return null
+  }
+});
+
+// 监听当前视图变化，更新插件面板内容
+watch(() => appStore.currentView, async (newView) => {
+  if (newView && pluginPanelContainer.value) {
+    await nextTick();
+    try {
+      const panels = pluginService.sidebarPanels?.value || pluginService.sidebarPanels || []
+      const validPanels = Array.isArray(panels) ? panels : []
+      const panel = validPanels.find(p => p && p.id === newView);
+      if (panel && panel.component && pluginPanelContainer.value) {
+        // 清空容器
+        pluginPanelContainer.value.innerHTML = '';
+        // 添加插件组件
+        pluginPanelContainer.value.appendChild(panel.component);
+      }
+    } catch (error) {
+      console.warn('Error updating plugin panel content:', error)
+    }
+  }
+}, { immediate: true });
 
 const startResize = (e: MouseEvent) => {
   isResizing.value = true;
@@ -111,6 +152,11 @@ onUnmounted(() => {
 });
 
 const getPanelTitle = () => {
+  // 检查是否是插件面板
+  if (currentPluginPanel.value) {
+    return currentPluginPanel.value.title;
+  }
+  
   const titles = {
     documents: '文档列表',
     diary: '日记列表',
@@ -132,13 +178,25 @@ const openNote = (note: any) => {
 
 // 处理打开文件
 const handleOpenFile = (filePath: string, fileName: string) => {
-  // 使用新的标签页组系统打开编辑器
-  tabGroupsStore.addTabToGroup({
-    title: fileName,
-    type: 'editor',
-    filePath: filePath,
-    content: '',
-  });
+  // 检查是否已经存在相同文件的标签页
+  const existingTabs = tabGroupsStore.getFileTabs(filePath);
+  
+  if (existingTabs.length > 0) {
+    // 如果已存在，激活第一个标签页
+    const existingTab = existingTabs[0];
+    const groupId = tabGroupsStore.layout.groups.get(tabGroupsStore.layout.activeGroupId)?.id || 'root';
+    tabGroupsStore.setActiveTab(existingTab.id, groupId);
+    console.log('File already open, switching to existing tab:', existingTab.id);
+  } else {
+    // 如果不存在，创建新的标签页
+    tabGroupsStore.addTabToGroup({
+      title: fileName,
+      type: 'editor',
+      filePath: filePath,
+      content: '',
+    });
+    console.log('Created new tab for file:', filePath);
+  }
 };
 
 const formatDate = (dateString: string) => {
