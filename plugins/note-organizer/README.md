@@ -102,8 +102,8 @@ note-organizer/
 
 ### API 使用
 ```javascript
-// 注册侧边栏面板
-this.api.ui.sidebar.registerPanel(panel)
+// 注册右侧栏面板
+this.api.ui.rightPanel.setContent(content)
 
 // 注册命令
 this.api.system.commands.register(command)

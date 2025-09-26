@@ -18,7 +18,7 @@
     "onStartup"
   ],
   "contributes": {
-    "sidebar": [
+    "rightPanel": [
       {
         "id": "note-organizer-panel",
         "title": "笔记整理",

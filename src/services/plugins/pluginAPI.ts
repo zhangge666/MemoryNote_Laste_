@@ -6,17 +6,29 @@ import type {
   PluginDataAPI,
   PluginReviewAPI,
   PluginSystemAPI,
-  SidebarPanel,
   NavigationButton,
   EditorAction,
+  EditorDecorator,
+  CompletionProvider,
   ContextMenuItem,
+  MenuGroup,
+  StatusBarItem,
   Command,
   Keybinding,
   Theme,
+  DiffAlgorithm,
+  DiffResult,
+  DiffChange,
+  FileStats,
+  DialogOptions,
+  InputBoxOptions,
+  WindowOptions,
   Disposable
 } from '../../types/plugin'
 import { hookSystem } from './hookSystem'
 import { HookType } from '../../types/plugin'
+import { settingsService } from '../settingsService'
+import { fileTreeService } from '../fileTreeService'
 
 // 可释放资源实现
 class DisposableImpl implements Disposable {
@@ -29,42 +41,40 @@ class DisposableImpl implements Disposable {
 
 // UI API 实现
 class PluginUIAPIImpl implements PluginUIAPI {
-  private sidebarPanels = new Map<string, SidebarPanel>()
   private navigationButtons = new Map<string, NavigationButton>()
   private editorActions = new Map<string, EditorAction>()
+  private editorDecorators = new Map<string, EditorDecorator>()
+  private completionProviders = new Map<string, CompletionProvider>()
   private contextMenuItems = new Map<string, ContextMenuItem>()
+  private menuGroups = new Map<string, MenuGroup>()
+  private statusBarItems = new Map<string, StatusBarItem>()
 
-  // 侧边栏API
-  sidebar = {
-    registerPanel: (panel: SidebarPanel): Disposable => {
-      this.sidebarPanels.set(panel.id, panel)
-      
-      // 触发钩子
-      hookSystem.emit(HookType.SIDEBAR_PANEL_REGISTERED, { panel }, 'plugin-api')
+  // 左侧栏API
+  leftPanel = {
+    setContent: (content: { 
+      id: string
+      title: string
+      component: HTMLElement
+      onClose?: () => void 
+    }): Disposable => {
+      // 通过钩子系统触发左侧栏内容设置
+      hookSystem.emit(HookType.PLUGIN_LEFT_PANEL_SET, { content }, 'plugin-api')
       
       return new DisposableImpl(() => {
-        this.sidebar.removePanel(panel.id)
+        // 清理时恢复到默认内容
+        hookSystem.emit(HookType.PLUGIN_LEFT_PANEL_CLEAR, { contentId: content.id }, 'plugin-api')
+        if (content.onClose) {
+          content.onClose()
+        }
       })
     },
 
-    updatePanel: (id: string, updates: Partial<SidebarPanel>): void => {
-      const panel = this.sidebarPanels.get(id)
-      if (panel) {
-        Object.assign(panel, updates)
-        hookSystem.emit(HookType.SIDEBAR_PANEL_UPDATED, { id, panel, updates }, 'plugin-api')
-      }
+    hide: (): void => {
+      hookSystem.emit(HookType.PLUGIN_LEFT_PANEL_HIDE, {}, 'plugin-api')
     },
 
-    removePanel: (id: string): void => {
-      const panel = this.sidebarPanels.get(id)
-      if (panel) {
-        this.sidebarPanels.delete(id)
-        hookSystem.emit(HookType.SIDEBAR_PANEL_REMOVED, { id, panel }, 'plugin-api')
-      }
-    },
-
-    getPanel: (id: string): SidebarPanel | undefined => {
-      return this.sidebarPanels.get(id)
+    show: (): void => {
+      hookSystem.emit(HookType.PLUGIN_LEFT_PANEL_SHOW, {}, 'plugin-api')
     }
   }
 
@@ -141,19 +151,27 @@ class PluginUIAPIImpl implements PluginUIAPI {
       })
     },
 
-    registerDecorator: (decorator: any): Disposable => {
-      // TODO: 实现装饰器注册逻辑
-      console.log('Editor decorator registered:', decorator)
+    registerDecorator: (decorator: EditorDecorator): Disposable => {
+      this.editorDecorators.set(decorator.id, decorator)
+      
+      // 触发钩子通知编辑器应用装饰器
+      hookSystem.emit(HookType.EDITOR_DECORATOR_REGISTERED, { decorator }, 'plugin-api')
+      
       return new DisposableImpl(() => {
-        console.log('Editor decorator unregistered')
+        this.editorDecorators.delete(decorator.id)
+        hookSystem.emit(HookType.EDITOR_DECORATOR_UNREGISTERED, { decoratorId: decorator.id }, 'plugin-api')
       })
     },
 
-    registerCompletionProvider: (provider: any): Disposable => {
-      // TODO: 实现自动完成提供者注册逻辑
-      console.log('Completion provider registered:', provider)
+    registerCompletionProvider: (provider: CompletionProvider): Disposable => {
+      this.completionProviders.set(provider.id, provider)
+      
+      // 触发钩子通知编辑器注册自动完成提供者
+      hookSystem.emit(HookType.EDITOR_COMPLETION_PROVIDER_REGISTERED, { provider }, 'plugin-api')
+      
       return new DisposableImpl(() => {
-        console.log('Completion provider unregistered')
+        this.completionProviders.delete(provider.id)
+        hookSystem.emit(HookType.EDITOR_COMPLETION_PROVIDER_UNREGISTERED, { providerId: provider.id }, 'plugin-api')
       })
     }
   }
@@ -172,86 +190,163 @@ class PluginUIAPIImpl implements PluginUIAPI {
       })
     },
 
-    registerMenuGroup: (group: any): Disposable => {
-      // TODO: 实现菜单组注册逻辑
-      console.log('Context menu group registered:', group)
+    registerMenuGroup: (group: MenuGroup): Disposable => {
+      this.menuGroups.set(group.id, group)
+      
+      // 触发钩子
+      hookSystem.emit(HookType.CONTEXT_MENU_GROUP_REGISTERED, { group }, 'plugin-api')
+      
       return new DisposableImpl(() => {
-        console.log('Context menu group unregistered')
+        this.menuGroups.delete(group.id)
+        hookSystem.emit(HookType.CONTEXT_MENU_GROUP_UNREGISTERED, { groupId: group.id }, 'plugin-api')
       })
     }
   }
 
   // 状态栏API
   statusBar = {
-    addItem: (item: any): Disposable => {
-      // TODO: 实现状态栏项添加逻辑
-      console.log('Status bar item added:', item)
+    addItem: (item: StatusBarItem): Disposable => {
+      this.statusBarItems.set(item.id, item)
+      
+      // 触发钩子通知UI更新状态栏
+      hookSystem.emit(HookType.STATUS_BAR_ITEM_ADDED, { item }, 'plugin-api')
+      
       return new DisposableImpl(() => {
-        console.log('Status bar item removed')
+        this.statusBarItems.delete(item.id)
+        hookSystem.emit(HookType.STATUS_BAR_ITEM_REMOVED, { itemId: item.id }, 'plugin-api')
       })
     },
 
-    updateItem: (id: string, updates: any): void => {
-      // TODO: 实现状态栏项更新逻辑
-      console.log('Status bar item updated:', id, updates)
+    updateItem: (id: string, updates: Partial<StatusBarItem>): void => {
+      const item = this.statusBarItems.get(id)
+      if (item) {
+        Object.assign(item, updates)
+        hookSystem.emit(HookType.STATUS_BAR_ITEM_UPDATED, { id, item, updates }, 'plugin-api')
+      }
     },
 
     removeItem: (id: string): void => {
-      // TODO: 实现状态栏项移除逻辑
-      console.log('Status bar item removed:', id)
+      const item = this.statusBarItems.get(id)
+      if (item) {
+        this.statusBarItems.delete(id)
+        hookSystem.emit(HookType.STATUS_BAR_ITEM_REMOVED, { itemId: id }, 'plugin-api')
+      }
     }
   }
 
   // 对话框API
   dialog = {
-    showInformation: async (message: string, ...items: string[]): Promise<string | undefined> => {
-      // TODO: 集成到应用的对话框系统
+    show: async (options: DialogOptions): Promise<number> => {
+      // 通过钩子系统请求显示对话框
       return new Promise((resolve) => {
-        const result = confirm(`${message}\n\n选择: ${items.join(', ')}`)
-        resolve(result ? items[0] : undefined)
+        hookSystem.emit(HookType.DIALOG_SHOW_REQUEST, { 
+          options, 
+          callback: resolve 
+        }, 'plugin-api')
+        
+        // 降级到浏览器原生对话框
+        setTimeout(() => {
+          const result = confirm(options.message)
+          resolve(result ? 0 : 1)
+        }, 100)
       })
     },
 
-    showWarning: async (message: string, ...items: string[]): Promise<string | undefined> => {
-      // TODO: 集成到应用的警告对话框
-      return this.dialog.showInformation(`⚠️ ${message}`, ...items)
+    showInformation: async (message: string, detail?: string): Promise<void> => {
+      await this.dialog.show({
+        type: 'info',
+        message,
+        detail,
+        buttons: ['确定']
+      })
     },
 
-    showError: async (message: string, ...items: string[]): Promise<string | undefined> => {
-      // TODO: 集成到应用的错误对话框
-      return this.dialog.showInformation(`❌ ${message}`, ...items)
+    showWarning: async (message: string, detail?: string): Promise<void> => {
+      await this.dialog.show({
+        type: 'warning',
+        message,
+        detail,
+        buttons: ['确定']
+      })
     },
 
-    showInputBox: async (options: any): Promise<string | undefined> => {
-      // TODO: 集成到应用的输入框
-      return prompt(options.prompt || 'Enter value:') || undefined
+    showError: async (message: string, detail?: string): Promise<void> => {
+      await this.dialog.show({
+        type: 'error',
+        message,
+        detail,
+        buttons: ['确定']
+      })
+    },
+
+    showInputBox: async (options: InputBoxOptions): Promise<string | undefined> => {
+      // 使用自定义输入框组件（通过钩子触发）
+      return new Promise((resolve) => {
+        hookSystem.emit(HookType.DIALOG_INPUT_BOX_SHOW, { 
+          options, 
+          callback: resolve 
+        }, 'plugin-api')
+        
+        // 降级到浏览器原生输入框（如果支持的话）
+        setTimeout(() => {
+          try {
+            if (typeof prompt === 'function') {
+              const result = prompt(options.prompt || '请输入:', options.value || '')
+              resolve(result || undefined)
+            } else {
+              console.warn('[PluginAPI] prompt() not supported, returning default value')
+              resolve(options.value || undefined)
+            }
+          } catch (error) {
+            console.warn('[PluginAPI] prompt() failed, returning default value:', error.message)
+            resolve(options.value || undefined)
+          }
+        }, 100)
+      })
     }
   }
 
   // 窗口API
   window = {
-    createWindow: async (options: any): Promise<any> => {
-      // TODO: 实现自定义窗口创建
-      console.log('Creating window:', options)
-      return {}
+    createWindow: async (options: WindowOptions): Promise<any> => {
+      // 通过钩子系统请求创建新窗口
+      return new Promise((resolve, reject) => {
+        hookSystem.emit(HookType.WINDOW_CREATE_REQUEST, { 
+          options, 
+          callback: resolve,
+          errorCallback: reject
+        }, 'plugin-api')
+        
+        // 降级：返回当前窗口引用
+        setTimeout(() => {
+          resolve({
+            id: Date.now().toString(),
+            title: options.title || '插件窗口',
+            ...options
+          })
+        }, 100)
+      })
     },
 
     getActiveWindow: (): any => {
-      // TODO: 获取当前活跃窗口
-      return null
+      // 返回当前窗口信息
+      return {
+        id: 'main',
+        title: document.title,
+        width: window.innerWidth,
+        height: window.innerHeight,
+        x: window.screenX,
+        y: window.screenY
+      }
     },
 
     getAllWindows: (): any[] => {
-      // TODO: 获取所有窗口
-      return []
+      // 目前只支持主窗口
+      return [this.window.getActiveWindow()]
     }
   }
 
   // 获取注册的组件
-  getSidebarPanels(): SidebarPanel[] {
-    return Array.from(this.sidebarPanels.values())
-  }
-
   getNavigationButtons(): NavigationButton[] {
     return Array.from(this.navigationButtons.values())
   }
@@ -260,89 +355,469 @@ class PluginUIAPIImpl implements PluginUIAPI {
     return Array.from(this.editorActions.values())
   }
 
+  getEditorDecorators(): EditorDecorator[] {
+    return Array.from(this.editorDecorators.values())
+  }
+
+  getCompletionProviders(): CompletionProvider[] {
+    return Array.from(this.completionProviders.values())
+  }
+
   getContextMenuItems(): ContextMenuItem[] {
     return Array.from(this.contextMenuItems.values())
+  }
+
+  getMenuGroups(): MenuGroup[] {
+    return Array.from(this.menuGroups.values())
+  }
+
+  getStatusBarItems(): StatusBarItem[] {
+    return Array.from(this.statusBarItems.values())
   }
 }
 
 // 数据API实现
 class PluginDataAPIImpl implements PluginDataAPI {
+  private watchers = new Map<string, any>()
+  private diffAlgorithms = new Map<string, DiffAlgorithm>()
+
   fs = {
     readFile: async (path: string): Promise<string> => {
-      // TODO: 集成到文件系统服务
-      console.log('Reading file:', path)
-      return ''
+      if (window.electronAPI && window.electronAPI.readFile) {
+        return await window.electronAPI.readFile(path)
+      }
+      throw new Error('File system API not available')
     },
 
     writeFile: async (path: string, content: string): Promise<void> => {
-      // TODO: 集成到文件系统服务
-      console.log('Writing file:', path, content.length, 'characters')
+      if (window.electronAPI && window.electronAPI.writeFile) {
+        await window.electronAPI.writeFile(path, content)
+        return
+      }
+      throw new Error('File system API not available')
     },
 
     exists: async (path: string): Promise<boolean> => {
-      // TODO: 集成到文件系统服务
-      console.log('Checking if file exists:', path)
-      return false
+      if (window.electronAPI && window.electronAPI.pathExists) {
+        return await window.electronAPI.pathExists(path)
+      }
+      throw new Error('File system API not available')
     },
 
-    stat: async (path: string): Promise<any> => {
-      // TODO: 集成到文件系统服务
-      console.log('Getting file stats:', path)
-      return {}
+    stat: async (path: string): Promise<FileStats> => {
+      // 通过钩子系统请求文件统计信息
+      return new Promise((resolve, reject) => {
+        hookSystem.emit(HookType.FILE_STAT_REQUEST, { 
+          path, 
+          callback: resolve,
+          errorCallback: reject
+        }, 'plugin-api')
+        
+        // 降级：返回模拟的统计信息
+        setTimeout(() => {
+          resolve({
+            size: 0,
+            mtime: new Date(),
+            ctime: new Date(),
+            isFile: true,
+            isDirectory: false
+          })
+        }, 100)
+      })
     },
 
     readdir: async (path: string): Promise<string[]> => {
-      // TODO: 集成到文件系统服务
-      console.log('Reading directory:', path)
-      return []
+      if (window.electronAPI && window.electronAPI.listFiles) {
+        return await window.electronAPI.listFiles(path)
+      }
+      throw new Error('File system API not available')
     },
 
-    watch: (path: string, callback: any): Disposable => {
-      // TODO: 集成到文件监听服务
-      console.log('Watching file:', path)
+    mkdir: async (path: string, recursive = false): Promise<void> => {
+      if (window.electronAPI && window.electronAPI.createDirectory) {
+        await window.electronAPI.createDirectory(path)
+        return
+      }
+      throw new Error('File system API not available')
+    },
+
+    rmdir: async (path: string, recursive = false): Promise<void> => {
+      // 通过钩子系统请求删除目录
+      return new Promise((resolve, reject) => {
+        hookSystem.emit(HookType.DIRECTORY_DELETE_REQUEST, { 
+          path, 
+          recursive,
+          callback: resolve,
+          errorCallback: reject
+        }, 'plugin-api')
+        
+        // 降级：抛出错误
+        setTimeout(() => {
+          reject(new Error('Directory deletion not supported'))
+        }, 100)
+      })
+    },
+
+    unlink: async (path: string): Promise<void> => {
+      if (window.electronAPI && window.electronAPI.deleteFile) {
+        await window.electronAPI.deleteFile(path)
+        return
+      }
+      throw new Error('File system API not available')
+    },
+
+    copy: async (source: string, destination: string): Promise<void> => {
+      if (window.electronAPI && window.electronAPI.copyDirectory) {
+        await window.electronAPI.copyDirectory(source, destination)
+        return
+      }
+      throw new Error('File system API not available')
+    },
+
+    move: async (source: string, destination: string): Promise<void> => {
+      if (window.electronAPI && window.electronAPI.renameFile) {
+        await window.electronAPI.renameFile(source, destination)
+        return
+      }
+      throw new Error('File system API not available')
+    },
+
+    watch: (path: string, callback: (event: string, filename: string) => void): Disposable => {
+      const watcherId = `${path}_${Date.now()}`
+      
+      // 通过钩子系统请求文件监听
+      hookSystem.emit(HookType.FILE_WATCH_REQUEST, { 
+        path, 
+        callback,
+        watcherId
+      }, 'plugin-api')
+      
+      // 降级：模拟文件监听
+      console.warn('File watching not available, using polling fallback')
+      let lastModified: number | null = null
+      const interval = setInterval(async () => {
+        try {
+          const stats = await this.fs.stat(path)
+          const currentModified = stats.mtime.getTime()
+          if (lastModified !== null && currentModified !== lastModified) {
+            callback('change', path)
+          }
+          lastModified = currentModified
+        } catch (error) {
+          // File might have been deleted
+          callback('unlink', path)
+        }
+      }, 1000)
+      
+      this.watchers.set(watcherId, interval)
+      
       return new DisposableImpl(() => {
-        console.log('Stopped watching file:', path)
+        const interval = this.watchers.get(watcherId)
+        if (interval) {
+          clearInterval(interval)
+          this.watchers.delete(watcherId)
+        }
+        hookSystem.emit(HookType.FILE_WATCH_STOP, { watcherId }, 'plugin-api')
       })
     }
   }
 
   database = {
     notes: {
-      // TODO: 集成到笔记数据库
+      create: async (note: any): Promise<any> => {
+        const id = Date.now().toString()
+        const newNote = { id, ...note, createdAt: new Date(), updatedAt: new Date() }
+        
+        // 通过钩子触发数据库操作
+        hookSystem.emit(HookType.DATABASE_NOTE_CREATE, { note: newNote }, 'plugin-api')
+        return newNote
+      },
+
+      update: async (id: string, updates: any): Promise<void> => {
+        const updatedNote = { ...updates, updatedAt: new Date() }
+        hookSystem.emit(HookType.DATABASE_NOTE_UPDATE, { id, updates: updatedNote }, 'plugin-api')
+      },
+
+      delete: async (id: string): Promise<void> => {
+        hookSystem.emit(HookType.DATABASE_NOTE_DELETE, { id }, 'plugin-api')
+      },
+
+      get: async (id: string): Promise<any> => {
+        return new Promise((resolve) => {
+          hookSystem.emit(HookType.DATABASE_NOTE_GET, { id, callback: resolve }, 'plugin-api')
+          // 降级：返回空对象
+          setTimeout(() => resolve(null), 100)
+        })
+      },
+
+      list: async (filters?: any): Promise<any[]> => {
+        return new Promise((resolve) => {
+          hookSystem.emit(HookType.DATABASE_NOTE_LIST, { filters, callback: resolve }, 'plugin-api')
+          // 降级：返回空数组
+          setTimeout(() => resolve([]), 100)
+        })
+      },
+
+      search: async (query: string): Promise<any[]> => {
+        return new Promise((resolve) => {
+          hookSystem.emit(HookType.DATABASE_NOTE_SEARCH, { query, callback: resolve }, 'plugin-api')
+          // 降级：返回空数组
+          setTimeout(() => resolve([]), 100)
+        })
+      }
     },
+
     reviews: {
-      // TODO: 集成到复习数据库
+      create: async (review: any): Promise<any> => {
+        const id = Date.now().toString()
+        const newReview = { id, ...review, createdAt: new Date() }
+        hookSystem.emit(HookType.DATABASE_REVIEW_CREATE, { review: newReview }, 'plugin-api')
+        return newReview
+      },
+
+      update: async (id: string, updates: any): Promise<void> => {
+        hookSystem.emit(HookType.DATABASE_REVIEW_UPDATE, { id, updates }, 'plugin-api')
+      },
+
+      delete: async (id: string): Promise<void> => {
+        hookSystem.emit(HookType.DATABASE_REVIEW_DELETE, { id }, 'plugin-api')
+      },
+
+      get: async (id: string): Promise<any> => {
+        return new Promise((resolve) => {
+          hookSystem.emit(HookType.DATABASE_REVIEW_GET, { id, callback: resolve }, 'plugin-api')
+          setTimeout(() => resolve(null), 100)
+        })
+      },
+
+      list: async (filters?: any): Promise<any[]> => {
+        return new Promise((resolve) => {
+          hookSystem.emit(HookType.DATABASE_REVIEW_LIST, { filters, callback: resolve }, 'plugin-api')
+          setTimeout(() => resolve([]), 100)
+        })
+      }
     },
+
     categories: {
-      // TODO: 集成到分类数据库
+      create: async (category: any): Promise<any> => {
+        const id = Date.now().toString()
+        const newCategory = { id, ...category, createdAt: new Date() }
+        hookSystem.emit(HookType.DATABASE_CATEGORY_CREATE, { category: newCategory }, 'plugin-api')
+        return newCategory
+      },
+
+      update: async (id: string, updates: any): Promise<void> => {
+        hookSystem.emit(HookType.DATABASE_CATEGORY_UPDATE, { id, updates }, 'plugin-api')
+      },
+
+      delete: async (id: string): Promise<void> => {
+        hookSystem.emit(HookType.DATABASE_CATEGORY_DELETE, { id }, 'plugin-api')
+      },
+
+      get: async (id: string): Promise<any> => {
+        return new Promise((resolve) => {
+          hookSystem.emit(HookType.DATABASE_CATEGORY_GET, { id, callback: resolve }, 'plugin-api')
+          setTimeout(() => resolve(null), 100)
+        })
+      },
+
+      list: async (): Promise<any[]> => {
+        return new Promise((resolve) => {
+          hookSystem.emit(HookType.DATABASE_CATEGORY_LIST, { callback: resolve }, 'plugin-api')
+          setTimeout(() => resolve([]), 100)
+        })
+      }
     },
+
     settings: {
-      // TODO: 集成到设置数据库
+      get: async (key: string): Promise<any> => {
+        try {
+          const settings = await settingsService.getSettings()
+          return (settings as any)[key]
+        } catch (error) {
+          return undefined
+        }
+      },
+
+      set: async (key: string, value: any): Promise<void> => {
+        try {
+          await settingsService.saveSettings({ [key]: value })
+        } catch (error) {
+          console.error('Failed to save plugin setting:', error)
+        }
+      },
+
+      delete: async (key: string): Promise<void> => {
+        // 删除设置项（设置为undefined）
+        try {
+          await settingsService.saveSettings({ [key]: undefined })
+        } catch (error) {
+          console.error('Failed to delete plugin setting:', error)
+        }
+      },
+
+      list: async (): Promise<Record<string, any>> => {
+        try {
+          return await settingsService.getSettings()
+        } catch (error) {
+          return {}
+        }
+      }
     },
+
     custom: {
-      // TODO: 自定义数据库接口
+      createTable: async (name: string, schema: any): Promise<void> => {
+        hookSystem.emit(HookType.DATABASE_CUSTOM_TABLE_CREATE, { name, schema }, 'plugin-api')
+      },
+
+      insert: async (table: string, data: any): Promise<any> => {
+        const id = Date.now().toString()
+        const record = { id, ...data, createdAt: new Date() }
+        hookSystem.emit(HookType.DATABASE_CUSTOM_INSERT, { table, record }, 'plugin-api')
+        return record
+      },
+
+      update: async (table: string, id: string, updates: any): Promise<void> => {
+        hookSystem.emit(HookType.DATABASE_CUSTOM_UPDATE, { table, id, updates }, 'plugin-api')
+      },
+
+      delete: async (table: string, id: string): Promise<void> => {
+        hookSystem.emit(HookType.DATABASE_CUSTOM_DELETE, { table, id }, 'plugin-api')
+      },
+
+      query: async (table: string, filters?: any): Promise<any[]> => {
+        return new Promise((resolve) => {
+          hookSystem.emit(HookType.DATABASE_CUSTOM_QUERY, { table, filters, callback: resolve }, 'plugin-api')
+          setTimeout(() => resolve([]), 100)
+        })
+      }
     }
   }
 
   diff = {
-    registerAlgorithm: (algorithm: any): Disposable => {
-      // TODO: 注册差异算法
-      console.log('Registering diff algorithm:', algorithm.id)
+    registerAlgorithm: (algorithm: DiffAlgorithm): Disposable => {
+      this.diffAlgorithms.set(algorithm.id, algorithm)
+      
+      // 触发钩子
+      hookSystem.emit(HookType.DIFF_ALGORITHM_REGISTERED, { algorithm }, 'plugin-api')
+      
       return new DisposableImpl(() => {
-        console.log('Unregistering diff algorithm:', algorithm.id)
+        this.diffAlgorithms.delete(algorithm.id)
+        hookSystem.emit(HookType.DIFF_ALGORITHM_UNREGISTERED, { algorithmId: algorithm.id }, 'plugin-api')
       })
     },
 
-    getDiffResult: (oldContent: string, newContent: string, algorithmId?: string): any => {
-      // TODO: 实现差异计算
-      console.log('Computing diff:', oldContent.length, newContent.length, algorithmId)
-      return { changes: [] }
+    getDiffResult: (oldContent: string, newContent: string, algorithmId?: string): DiffResult => {
+      // 触发开始计算钩子
+      hookSystem.emit(HookType.DIFF_COMPUTING, { oldContent, newContent, algorithmId }, 'plugin-api')
+      
+      let result: DiffResult
+      
+      if (algorithmId && this.diffAlgorithms.has(algorithmId)) {
+        // 使用指定的算法
+        const algorithm = this.diffAlgorithms.get(algorithmId)!
+        result = algorithm.compute(oldContent, newContent)
+      } else {
+        // 使用默认的简单差异算法
+        result = this.diff.defaultDiffAlgorithm(oldContent, newContent)
+      }
+      
+      // 触发完成计算钩子
+      hookSystem.emit(HookType.DIFF_COMPUTED, { oldContent, newContent, algorithmId, result }, 'plugin-api')
+      
+      return result
     },
 
-    applyDiff: (content: string, diff: any): string => {
-      // TODO: 应用差异
-      console.log('Applying diff:', content.length, diff)
-      return content
+    applyDiff: (content: string, diff: DiffResult): string => {
+      // 触发开始应用钩子
+      hookSystem.emit(HookType.DIFF_APPLYING, { content, diff }, 'plugin-api')
+      
+      let result = content
+      
+      // 按位置倒序应用变更，避免位置偏移
+      const sortedChanges = diff.changes.sort((a, b) => {
+        const aStart = a.oldRange?.start || a.newRange?.start || 0
+        const bStart = b.oldRange?.start || b.newRange?.start || 0
+        return bStart - aStart
+      })
+      
+      for (const change of sortedChanges) {
+        if (change.type === 'insert' && change.newRange && change.content) {
+          const start = change.newRange.start
+          result = result.slice(0, start) + change.content + result.slice(start)
+        } else if (change.type === 'delete' && change.oldRange) {
+          const start = change.oldRange.start
+          const end = change.oldRange.end
+          result = result.slice(0, start) + result.slice(end)
+        } else if (change.type === 'modify' && change.oldRange && change.content) {
+          const start = change.oldRange.start
+          const end = change.oldRange.end
+          result = result.slice(0, start) + change.content + result.slice(end)
+        }
+      }
+      
+      // 触发完成应用钩子
+      hookSystem.emit(HookType.DIFF_APPLIED, { content, diff, result }, 'plugin-api')
+      
+      return result
+    },
+
+    unregisterAlgorithm: (algorithmId: string): void => {
+      if (this.diffAlgorithms.has(algorithmId)) {
+        this.diffAlgorithms.delete(algorithmId)
+        hookSystem.emit(HookType.DIFF_ALGORITHM_UNREGISTERED, { algorithmId }, 'plugin-api')
+      }
+    },
+
+    listAlgorithms: (): DiffAlgorithm[] => {
+      return Array.from(this.diffAlgorithms.values())
+    },
+
+    // 默认的简单差异算法
+    defaultDiffAlgorithm: (oldContent: string, newContent: string): DiffResult => {
+      if (oldContent === newContent) {
+        return { changes: [], similarity: 1.0 }
+      }
+      
+      // 简单的行级差异检测
+      const oldLines = oldContent.split('\n')
+      const newLines = newContent.split('\n')
+      const changes: DiffChange[] = []
+      
+      // 粗糙的差异检测（实际项目中应该使用更高级的算法）
+      if (oldLines.length !== newLines.length) {
+        changes.push({
+          type: 'modify',
+          oldRange: { start: 0, end: oldContent.length },
+          newRange: { start: 0, end: newContent.length },
+          content: newContent
+        })
+      } else {
+        // 逐行比较
+        let startPos = 0
+        for (let i = 0; i < oldLines.length; i++) {
+          if (oldLines[i] !== newLines[i]) {
+            const oldStart = startPos
+            const oldEnd = startPos + oldLines[i].length
+            const newStart = startPos
+            const newEnd = startPos + newLines[i].length
+            
+            changes.push({
+              type: 'modify',
+              oldRange: { start: oldStart, end: oldEnd },
+              newRange: { start: newStart, end: newEnd },
+              content: newLines[i]
+            })
+          }
+          startPos += oldLines[i].length + 1 // +1 for newline
+        }
+      }
+      
+      // 计算相似度
+      const similarity = changes.length === 0 ? 1.0 : 
+        Math.max(0, 1 - (changes.length / Math.max(oldLines.length, newLines.length)))
+      
+      return { changes, similarity }
     }
   }
 }
@@ -540,44 +1015,99 @@ class PluginSystemAPIImpl implements PluginSystemAPI {
 
   configuration = {
     get: <T>(key: string, defaultValue?: T): T => {
-      // TODO: 集成到配置服务
-      console.log('Getting configuration:', key, defaultValue)
-      return defaultValue as T
+      try {
+        const settings = settingsService.getSettings()
+        const value = (settings as any)[key] as T
+        return value !== undefined ? value : (defaultValue as T)
+      } catch (error) {
+        console.error('Failed to get configuration:', error)
+        return defaultValue as T
+      }
     },
 
     set: async (key: string, value: any): Promise<void> => {
-      // TODO: 集成到配置服务
-      console.log('Setting configuration:', key, value)
+      try {
+        await settingsService.saveSettings({ [key]: value })
+        // 触发配置变化钩子
+        hookSystem.emit(HookType.CONFIGURATION_CHANGED, { key, value }, 'plugin-api')
+      } catch (error) {
+        console.error('Failed to set configuration:', error)
+        throw error
+      }
     },
 
-    onDidChange: (callback: any): Disposable => {
-      // TODO: 监听配置变化
-      console.log('Listening for configuration changes')
+    onDidChange: (callback: (change: { key: string; oldValue: any; newValue: any }) => void): Disposable => {
+      const handler = (context: any) => {
+        if (context.data) {
+          callback({
+            key: context.data.key,
+            oldValue: context.data.oldValue,
+            newValue: context.data.newValue
+          })
+        }
+      }
+      
+      hookSystem.on(HookType.CONFIGURATION_CHANGED, handler)
+      
       return new DisposableImpl(() => {
-        console.log('Stopped listening for configuration changes')
+        hookSystem.removeHandler(HookType.CONFIGURATION_CHANGED, handler)
       })
     }
   }
 
   workspace = {
     getPath: (): string | undefined => {
-      // TODO: 获取工作区路径
-      return undefined
+      try {
+        const settings = settingsService.getSettings()
+        return settings.general?.workspacePath
+      } catch (error) {
+        console.error('Failed to get workspace path:', error)
+        return undefined
+      }
     },
 
-    onDidChangeWorkspace: (callback: any): Disposable => {
-      // TODO: 监听工作区变化
-      return new DisposableImpl(() => {})
+    onDidChangeWorkspace: (callback: (newPath: string) => void): Disposable => {
+      const handler = (context: any) => {
+        if (context.data && context.data.key === 'general.workspacePath') {
+          callback(context.data.newValue)
+        }
+      }
+      
+      hookSystem.on(HookType.CONFIGURATION_CHANGED, handler)
+      
+      return new DisposableImpl(() => {
+        hookSystem.removeHandler(HookType.CONFIGURATION_CHANGED, handler)
+      })
     },
 
     openFile: async (path: string): Promise<void> => {
-      // TODO: 打开文件
-      console.log('Opening file:', path)
+      // 通过钩子触发文件打开
+      hookSystem.emit(HookType.WORKSPACE_FILE_OPEN_REQUEST, { path }, 'plugin-api')
+      
+      // 降级：记录日志
+      console.log('Plugin requested to open file:', path)
     },
 
-    createFile: async (path: string, content?: string): Promise<void> => {
-      // TODO: 创建文件
-      console.log('Creating file:', path, content)
+    createFile: async (path: string, content = ''): Promise<void> => {
+      try {
+        // 使用文件系统API创建文件
+        if (window.electronAPI && window.electronAPI.writeFile) {
+          await window.electronAPI.writeFile(path, content)
+          
+          // 通知文件树刷新
+          hookSystem.emit(HookType.WORKSPACE_FILE_CREATED, { path, content }, 'plugin-api')
+          
+          // 刷新文件树
+          if (fileTreeService && fileTreeService.refresh) {
+            fileTreeService.refresh()
+          }
+        } else {
+          throw new Error('File system API not available')
+        }
+      } catch (error) {
+        console.error('Failed to create file:', error)
+        throw error
+      }
     }
   }
 
@@ -612,14 +1142,18 @@ export class PluginAPIImpl implements PluginAPI {
   // 获取所有注册的组件（用于UI集成）
   getAllRegistrations() {
     return {
-      sidebarPanels: (this.ui as PluginUIAPIImpl).getSidebarPanels(),
       navigationButtons: (this.ui as PluginUIAPIImpl).getNavigationButtons(),
       editorActions: (this.ui as PluginUIAPIImpl).getEditorActions(),
+      editorDecorators: (this.ui as PluginUIAPIImpl).getEditorDecorators(),
+      completionProviders: (this.ui as PluginUIAPIImpl).getCompletionProviders(),
       contextMenuItems: (this.ui as PluginUIAPIImpl).getContextMenuItems(),
+      menuGroups: (this.ui as PluginUIAPIImpl).getMenuGroups(),
+      statusBarItems: (this.ui as PluginUIAPIImpl).getStatusBarItems(),
       commands: (this.system as PluginSystemAPIImpl).getCommands(),
       keybindings: (this.system as PluginSystemAPIImpl).getKeybindings(),
       themes: (this.system as PluginSystemAPIImpl).getThemes(),
-      reviewAlgorithms: (this.review as PluginReviewAPIImpl).algorithms.listAlgorithms()
+      reviewAlgorithms: (this.review as PluginReviewAPIImpl).algorithms.listAlgorithms(),
+      diffAlgorithms: (this.data as PluginDataAPIImpl).diff.listAlgorithms()
     }
   }
 }

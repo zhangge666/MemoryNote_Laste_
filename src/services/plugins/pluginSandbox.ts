@@ -306,15 +306,35 @@ export class PluginSandboxImpl implements PluginSandbox {
         if (prop === '__target__') {
           return target
         }
+        
+        // 关键修复：让代理对象能够被识别为DOM节点
+        if (prop === Symbol.toStringTag) {
+          return target[prop as keyof Element]
+        }
+        if (prop === 'nodeType' || prop === 'nodeName' || prop === 'constructor') {
+          return target[prop as keyof Element]
+        }
+        
         // 允许大部分DOM操作但限制危险操作
         if (prop === 'innerHTML' || prop === 'outerHTML') {
           return target[prop as keyof Element]
         }
+        
         if (typeof target[prop as keyof Element] === 'function') {
           return (...args: any[]) => {
             // 记录DOM操作
             (this.monitor as any).incrementFileOperations?.()
-            return (target[prop as keyof Element] as any).apply(target, args)
+            
+            // 处理DOM方法的参数，将代理对象转换为真实DOM元素
+            const processedArgs = args.map(arg => {
+              // 如果参数是我们的代理对象，提取真实的DOM元素
+              if (arg && typeof arg === 'object' && arg.__target__) {
+                return arg.__target__
+              }
+              return arg
+            })
+            
+            return (target[prop as keyof Element] as any).apply(target, processedArgs)
           }
         }
         return target[prop as keyof Element]
@@ -323,8 +343,20 @@ export class PluginSandboxImpl implements PluginSandbox {
         // 允许设置大部分属性
         ;(target as any)[prop] = value
         return true
+      },
+      // 关键修复：让instanceof检查能正确工作
+      getPrototypeOf: (target) => {
+        return Object.getPrototypeOf(target)
+      },
+      // 让代理对象能够正确地被识别为Node类型
+      has: (target, prop) => {
+        return prop in target
       }
     })
+    
+    // 额外修复：确保代理对象有正确的原型链
+    Object.setPrototypeOf(proxy, Object.getPrototypeOf(element))
+    
     return proxy
   }
 

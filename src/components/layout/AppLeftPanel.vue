@@ -54,7 +54,7 @@
       </div>
       
       <!-- 插件面板内容 -->
-      <div v-else-if="currentPluginPanel" class="h-full">
+      <div v-else-if="appStore.leftPanelContent === 'plugin-content' && appStore.selectedPluginForLeftPanel" class="h-full">
         <div ref="pluginPanelContainer" class="h-full"></div>
       </div>
     </div>
@@ -76,35 +76,31 @@ const notes = ref([]);
 const isResizing = ref(false);
 const pluginPanelContainer = ref<HTMLElement>();
 
-// 计算当前选中的插件面板
-const currentPluginPanel = computed(() => {
-  if (!appStore.currentView) return null;
-  try {
-    const panels = pluginService.sidebarPanels?.value || pluginService.sidebarPanels || []
-    const validPanels = Array.isArray(panels) ? panels : []
-    return validPanels.find(panel => panel && panel.id === appStore.currentView) || null;
-  } catch (error) {
-    console.warn('Error accessing current plugin panel:', error)
-    return null
-  }
-});
-
-// 监听当前视图变化，更新插件面板内容
-watch(() => appStore.currentView, async (newView) => {
-  if (newView && pluginPanelContainer.value) {
-    await nextTick();
-    try {
-      const panels = pluginService.sidebarPanels?.value || pluginService.sidebarPanels || []
-      const validPanels = Array.isArray(panels) ? panels : []
-      const panel = validPanels.find(p => p && p.id === newView);
-      if (panel && panel.component && pluginPanelContainer.value) {
-        // 清空容器
-        pluginPanelContainer.value.innerHTML = '';
-        // 添加插件组件
-        pluginPanelContainer.value.appendChild(panel.component);
+// 监听左侧栏插件内容变化
+watch(() => appStore.selectedPluginForLeftPanel, async (newContent) => {
+  if (appStore.leftPanelContent === 'plugin-content' && newContent && newContent.component) {
+    await nextTick()
+    if (pluginPanelContainer.value) {
+      // 清空容器
+      pluginPanelContainer.value.innerHTML = ''
+      
+      // 确保component是有效的DOM元素
+      const component = newContent.component
+      
+      // 检查是否是插件沙箱的代理元素
+      if (component && typeof component === 'object' && component.__target__) {
+        // 获取代理后面的真实DOM元素
+        pluginPanelContainer.value.appendChild(component.__target__)
+      } else if (component instanceof HTMLElement) {
+        // 直接的DOM元素
+        pluginPanelContainer.value.appendChild(component)
+      } else if (typeof component === 'string') {
+        // 如果是HTML字符串，直接设置innerHTML
+        pluginPanelContainer.value.innerHTML = component
+      } else {
+        console.error('[AppLeftPanel] Invalid component type:', typeof component, component)
+        pluginPanelContainer.value.innerHTML = '<div class="p-4 text-red-500">插件组件类型错误</div>'
       }
-    } catch (error) {
-      console.warn('Error updating plugin panel content:', error)
     }
   }
 }, { immediate: true });
@@ -153,8 +149,8 @@ onUnmounted(() => {
 
 const getPanelTitle = () => {
   // 检查是否是插件面板
-  if (currentPluginPanel.value) {
-    return currentPluginPanel.value.title;
+  if (appStore.leftPanelContent === 'plugin-content' && appStore.selectedPluginForLeftPanel) {
+    return appStore.selectedPluginForLeftPanel.title;
   }
   
   const titles = {

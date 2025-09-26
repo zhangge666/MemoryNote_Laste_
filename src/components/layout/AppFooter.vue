@@ -19,6 +19,14 @@
     
     <!-- 右侧信息 -->
     <div class="flex items-center space-x-4 text-xs text-gray-600 dark:text-gray-400">
+      <!-- 插件状态栏项 -->
+      <div v-for="statusItem in pluginStatusItems" :key="statusItem.id" 
+           class="flex items-center space-x-1 px-2 py-1 rounded cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+           :style="{ backgroundColor: statusItem.backgroundColor, color: statusItem.color }"
+           :title="statusItem.tooltip"
+           @click="statusItem.onClick">
+        <span>{{ statusItem.text }}</span>
+      </div>
       <!-- 概览信息 -->
       <div v-if="!tabGroupsStore.activeTab" class="flex items-center space-x-4">
         <div class="flex items-center space-x-1">
@@ -72,12 +80,25 @@
 import { ref, computed } from 'vue';
 import { useAppStore } from '../../stores/app';
 import { useTabGroupsStore } from '../../stores/tabGroups';
+import { usePluginService } from '../../services/plugins/pluginService';
 
 const appStore = useAppStore();
 const tabGroupsStore = useTabGroupsStore();
+const pluginService = usePluginService();
 
 const notesCount = ref(0);
 const reviewCount = ref(0);
+
+// 计算插件状态栏项
+const pluginStatusItems = computed(() => {
+  try {
+    const statusBarItems = pluginService.statusBarItems?.value || []
+    return Array.isArray(statusBarItems) ? statusBarItems : []
+  } catch (error) {
+    console.warn('Error accessing plugin status bar items:', error)
+    return []
+  }
+});
 
 const getFileName = () => {
   const activeTab = tabGroupsStore.activeTab;

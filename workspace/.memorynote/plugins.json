@@ -1,26 +1,26 @@
 {
   "pluginStates": {
-    "note-organizer": {
-      "id": "note-organizer",
+    "api-test-plugin": {
+      "id": "api-test-plugin",
       "enabled": true,
       "autoLoad": true,
-      "lastLoaded": 1758880692407
+      "lastLoaded": 1758891066725
     }
   },
   "installedPlugins": {
-    "note-organizer": {
-      "id": "note-organizer",
+    "api-test-plugin": {
+      "id": "api-test-plugin",
       "version": "1.0.0",
-      "installPath": "D:\\code\\MemoryNote_Laste_-main\\workspace/.memorynote/note-organizer",
-      "installTime": 1758880170479,
+      "installPath": "D:\\code\\MemoryNote_Laste_-main\\workspace/.memorynote/api-test-plugin",
+      "installTime": 1758889408680,
       "enabled": true,
       "autoLoad": true,
       "dependencies": [],
       "manifest": {
-        "id": "note-organizer",
-        "name": "笔记整理器",
+        "id": "api-test-plugin",
+        "name": "API测试插件",
         "version": "1.0.0",
-        "description": "一个帮助你整理和分类笔记的插件，提供标签管理、快速搜索和笔记分组功能",
+        "description": "用于测试所有插件API功能的综合测试插件",
         "author": "MemoryNote Team",
         "main": "index.js",
         "engines": {
@@ -29,44 +29,57 @@
         "permissions": [
           "ui.modify",
           "fs.read",
-          "fs.write"
+          "fs.write",
+          "fs.delete",
+          "fs.watch",
+          "db.read",
+          "db.write",
+          "db.schema",
+          "ui.dialog",
+          "ui.notification",
+          "system.command",
+          "system.clipboard",
+          "network.request",
+          "ipc.send",
+          "ipc.receive"
         ],
         "dependencies": [],
         "activationEvents": [
           "onStartup"
         ],
         "contributes": {
-          "sidebar": [
-            {
-              "id": "note-organizer-panel",
-              "title": "笔记整理",
-              "icon": "organize",
-              "position": 3
-            }
-          ],
           "commands": [
             {
-              "id": "note-organizer.organize",
-              "title": "整理笔记",
-              "category": "笔记整理器"
+              "id": "api-test.runAllTests",
+              "title": "运行所有API测试",
+              "category": "API测试"
             },
             {
-              "id": "note-organizer.addTag",
-              "title": "添加标签",
-              "category": "笔记整理器"
+              "id": "api-test.testUI",
+              "title": "测试UI API",
+              "category": "API测试"
+            },
+            {
+              "id": "api-test.testData",
+              "title": "测试数据API",
+              "category": "API测试"
+            },
+            {
+              "id": "api-test.testSystem",
+              "title": "测试系统API",
+              "category": "API测试"
             }
           ]
         },
         "keywords": [
-          "笔记",
-          "整理",
-          "标签",
-          "分类",
-          "组织"
+          "test",
+          "api",
+          "demo",
+          "development"
         ]
       }
     }
   },
   "version": "1.0.0",
-  "lastUpdated": 1758880692408
+  "lastUpdated": 1758891066726
 }

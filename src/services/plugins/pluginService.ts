@@ -22,6 +22,7 @@ interface PluginServiceState {
   navigationButtons: NavigationButton[]
   commands: Command[]
   themes: Theme[]
+  statusBarItems: any[]
   isInitialized: boolean
   errors: Array<{ pluginId: string; error: string; timestamp: number }>
 }
@@ -47,6 +48,7 @@ export class PluginService {
     navigationButtons: [],
     commands: [],
     themes: [],
+    statusBarItems: [],
     isInitialized: false,
     errors: []
   })
@@ -70,6 +72,7 @@ export class PluginService {
   public readonly navigationButtons = computed(() => this.state.navigationButtons)
   public readonly commands = computed(() => this.state.commands)
   public readonly themes = computed(() => this.state.themes)
+  public readonly statusBarItems = computed(() => this.state.statusBarItems)
   public readonly errors = computed(() => this.state.errors)
   public readonly isInitialized = computed(() => this.state.isInitialized)
 
@@ -99,6 +102,17 @@ export class PluginService {
     hookSystem.on(HookType.SYSTEM_COMMAND_UNREGISTERED, this.onCommandUnregistered.bind(this))
     hookSystem.on(HookType.SYSTEM_THEME_REGISTERED, this.onThemeRegistered.bind(this))
     hookSystem.on(HookType.SYSTEM_THEME_UNREGISTERED, this.onThemeUnregistered.bind(this))
+    
+    // 监听状态栏钩子
+    hookSystem.on(HookType.STATUS_BAR_ITEM_ADDED, this.onStatusBarItemAdded.bind(this))
+    hookSystem.on(HookType.STATUS_BAR_ITEM_UPDATED, this.onStatusBarItemUpdated.bind(this))
+    hookSystem.on(HookType.STATUS_BAR_ITEM_REMOVED, this.onStatusBarItemRemoved.bind(this))
+    
+    // 监听左侧栏钩子
+    hookSystem.on(HookType.PLUGIN_LEFT_PANEL_SET, this.onLeftPanelSet.bind(this))
+    hookSystem.on(HookType.PLUGIN_LEFT_PANEL_CLEAR, this.onLeftPanelClear.bind(this))
+    hookSystem.on(HookType.PLUGIN_LEFT_PANEL_HIDE, this.onLeftPanelHide.bind(this))
+    hookSystem.on(HookType.PLUGIN_LEFT_PANEL_SHOW, this.onLeftPanelShow.bind(this))
     
     // 监听右侧栏钩子
     hookSystem.on(HookType.PLUGIN_RIGHT_PANEL_SET, this.onRightPanelSet.bind(this))
@@ -361,6 +375,75 @@ export class PluginService {
     }
   }
 
+  // 状态栏钩子处理方法
+  private onStatusBarItemAdded(context: HookContext<{ item: any }>): void {
+    const item = context.data.item
+    console.log('[PluginService] 状态栏项已添加:', item)
+    
+    // 添加到状态中，让UI组件响应式更新
+    this.state.statusBarItems.push(item)
+  }
+
+  private onStatusBarItemUpdated(context: HookContext<{ id: string; item: any; updates: any }>): void {
+    const { id, updates } = context.data
+    console.log('[PluginService] 状态栏项已更新:', id, updates)
+    
+    // 更新状态中的状态栏项 - 使用响应式友好的方式
+    const index = this.state.statusBarItems.findIndex(item => item.id === id)
+    if (index !== -1) {
+      // 创建新的对象来触发响应式更新
+      const updatedItem = { ...this.state.statusBarItems[index], ...updates }
+      this.state.statusBarItems.splice(index, 1, updatedItem)
+    }
+  }
+
+  private onStatusBarItemRemoved(context: HookContext<{ itemId: string }>): void {
+    const itemId = context.data.itemId
+    console.log('[PluginService] 状态栏项已移除:', itemId)
+    
+    // 从状态中移除状态栏项
+    const index = this.state.statusBarItems.findIndex(item => item.id === itemId)
+    if (index !== -1) {
+      this.state.statusBarItems.splice(index, 1)
+    }
+  }
+
+
+  // 左侧栏钩子处理方法
+  private onLeftPanelSet(context: HookContext<{ content: any }>): void {
+    const appStore = useAppStore()
+    const content = context.data.content
+    
+    // 设置自定义内容到左侧栏
+    appStore.setLeftPanelContent('plugin-content')
+    appStore.setSelectedPluginForLeftPanel({
+      id: content.id,
+      title: content.title,
+      component: content.component,
+      onClose: content.onClose
+    })
+    
+    // 自动打开左侧栏
+    appStore.leftSidebarVisible = true
+  }
+
+  private onLeftPanelClear(context: HookContext<{ contentId: string }>): void {
+    const appStore = useAppStore()
+    // 清理时恢复到默认内容（如文件树）
+    appStore.setLeftPanelContent('file-tree')
+    appStore.clearLeftPanelPlugin()
+  }
+
+  private onLeftPanelHide(context: HookContext<{}>): void {
+    const appStore = useAppStore()
+    appStore.leftSidebarVisible = false
+  }
+
+  private onLeftPanelShow(context: HookContext<{}>): void {
+    const appStore = useAppStore()
+    appStore.leftSidebarVisible = true
+  }
+
   // 右侧栏钩子处理方法
   private onRightPanelSet(context: HookContext<{ content: any }>): void {
     const appStore = useAppStore()
@@ -447,6 +530,7 @@ export const usePluginService = () => ({
   navigationButtons: pluginService.navigationButtons,
   commands: pluginService.commands,
   themes: pluginService.themes,
+  statusBarItems: pluginService.statusBarItems,
   errors: pluginService.errors,
   isInitialized: pluginService.isInitialized,
 

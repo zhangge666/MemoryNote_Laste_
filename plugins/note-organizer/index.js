@@ -3,7 +3,7 @@ class NoteOrganizerPlugin {
   constructor(context) {
     this.name = '笔记整理器'
     this.version = '1.0.0'
-    this.sidebarPanel = null
+    this.rightPanel = null
     this.disposables = []
     this.context = context
     this.api = context.api

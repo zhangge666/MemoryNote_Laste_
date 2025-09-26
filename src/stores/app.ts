@@ -12,6 +12,8 @@ export const useAppStore = defineStore('app', () => {
   const currentView = ref('documents');
   const rightPanelContent = ref<'document-info' | 'plugin-details' | 'plugin-content' | null>('document-info');
   const selectedPluginForDetails = ref<any>(null);
+  const leftPanelContent = ref<'file-tree' | 'plugin-content' | null>('file-tree');
+  const selectedPluginForLeftPanel = ref<any>(null);
   const isDarkMode = ref(false);
   const workspacePath = ref('');
 
@@ -87,6 +89,21 @@ export const useAppStore = defineStore('app', () => {
     rightPanelContent.value = 'document-info';
   };
 
+  const setLeftPanelContent = (content: 'file-tree' | 'plugin-content' | null) => {
+    leftPanelContent.value = content;
+  };
+
+  const setSelectedPluginForLeftPanel = (plugin: any) => {
+    selectedPluginForLeftPanel.value = plugin;
+    leftPanelContent.value = 'plugin-content';
+    leftSidebarVisible.value = true;
+  };
+
+  const clearLeftPanelPlugin = () => {
+    selectedPluginForLeftPanel.value = null;
+    leftPanelContent.value = 'file-tree';
+  };
+
   const initializeApp = async () => {
     // 初始化应用
     console.log('Initializing MemoryNote app...');
@@ -114,6 +131,8 @@ export const useAppStore = defineStore('app', () => {
     currentView,
     rightPanelContent,
     selectedPluginForDetails,
+    leftPanelContent,
+    selectedPluginForLeftPanel,
     isDarkMode,
     workspacePath,
     
@@ -135,6 +154,9 @@ export const useAppStore = defineStore('app', () => {
     setRightPanelContent,
     setSelectedPluginForDetails,
     clearPluginDetails,
+    setLeftPanelContent,
+    setSelectedPluginForLeftPanel,
+    clearLeftPanelPlugin,
     initializeApp,
   };
 });

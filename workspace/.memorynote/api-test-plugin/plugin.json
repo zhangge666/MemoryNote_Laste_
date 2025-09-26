@@ -1,0 +1,62 @@
+{
+  "id": "api-test-plugin",
+  "name": "API测试插件",
+  "version": "1.0.0",
+  "description": "用于测试所有插件API功能的综合测试插件",
+  "author": "MemoryNote Team",
+  "main": "index.js",
+  "engines": {
+    "memorynote": "^1.0.0"
+  },
+  "permissions": [
+    "ui.modify",
+    "fs.read",
+    "fs.write",
+    "fs.delete",
+    "fs.watch",
+    "db.read",
+    "db.write",
+    "db.schema",
+    "ui.dialog",
+    "ui.notification",
+    "system.command",
+    "system.clipboard",
+    "network.request",
+    "ipc.send",
+    "ipc.receive"
+  ],
+  "dependencies": [],
+  "activationEvents": [
+    "onStartup"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "id": "api-test.runAllTests",
+        "title": "运行所有API测试",
+        "category": "API测试"
+      },
+      {
+        "id": "api-test.testUI",
+        "title": "测试UI API",
+        "category": "API测试"
+      },
+      {
+        "id": "api-test.testData",
+        "title": "测试数据API",
+        "category": "API测试"
+      },
+      {
+        "id": "api-test.testSystem",
+        "title": "测试系统API",
+        "category": "API测试"
+      }
+    ]
+  },
+  "keywords": [
+    "test",
+    "api",
+    "demo",
+    "development"
+  ]
+}

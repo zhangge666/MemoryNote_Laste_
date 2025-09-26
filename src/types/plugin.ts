@@ -38,7 +38,12 @@ export enum HookType {
   APP_READY = 'app.ready',
   APP_CLOSING = 'app.closing',
   
-  // 右侧栏钩子
+  // 面板钩子
+  PLUGIN_LEFT_PANEL_SET = 'plugin.leftPanel.set',
+  PLUGIN_LEFT_PANEL_CLEAR = 'plugin.leftPanel.clear',
+  PLUGIN_LEFT_PANEL_HIDE = 'plugin.leftPanel.hide',
+  PLUGIN_LEFT_PANEL_SHOW = 'plugin.leftPanel.show',
+  
   PLUGIN_RIGHT_PANEL_SET = 'plugin.rightPanel.set',
   PLUGIN_RIGHT_PANEL_CLEAR = 'plugin.rightPanel.clear',
   PLUGIN_RIGHT_PANEL_HIDE = 'plugin.rightPanel.hide',
@@ -72,6 +77,34 @@ export enum HookType {
   DIFF_COMPUTED = 'diff.computed',
   DIFF_APPLYING = 'diff.applying',
   DIFF_APPLIED = 'diff.applied',
+  DIFF_ALGORITHM_REGISTERED = 'diff.algorithmRegistered',
+  DIFF_ALGORITHM_UNREGISTERED = 'diff.algorithmUnregistered',
+  
+  // 数据库事件
+  DATABASE_NOTE_CREATE = 'database.note.create',
+  DATABASE_NOTE_UPDATE = 'database.note.update',
+  DATABASE_NOTE_DELETE = 'database.note.delete',
+  DATABASE_NOTE_GET = 'database.note.get',
+  DATABASE_NOTE_LIST = 'database.note.list',
+  DATABASE_NOTE_SEARCH = 'database.note.search',
+  
+  DATABASE_REVIEW_CREATE = 'database.review.create',
+  DATABASE_REVIEW_UPDATE = 'database.review.update',
+  DATABASE_REVIEW_DELETE = 'database.review.delete',
+  DATABASE_REVIEW_GET = 'database.review.get',
+  DATABASE_REVIEW_LIST = 'database.review.list',
+  
+  DATABASE_CATEGORY_CREATE = 'database.category.create',
+  DATABASE_CATEGORY_UPDATE = 'database.category.update',
+  DATABASE_CATEGORY_DELETE = 'database.category.delete',
+  DATABASE_CATEGORY_GET = 'database.category.get',
+  DATABASE_CATEGORY_LIST = 'database.category.list',
+  
+  DATABASE_CUSTOM_TABLE_CREATE = 'database.custom.table.create',
+  DATABASE_CUSTOM_INSERT = 'database.custom.insert',
+  DATABASE_CUSTOM_UPDATE = 'database.custom.update',
+  DATABASE_CUSTOM_DELETE = 'database.custom.delete',
+  DATABASE_CUSTOM_QUERY = 'database.custom.query',
   
   // UI 事件
   SIDEBAR_PANEL_OPENING = 'ui.sidebarPanelOpening',
@@ -87,8 +120,30 @@ export enum HookType {
   EDITOR_ACTION_REGISTERED = 'ui.editorActionRegistered',
   EDITOR_ACTION_UNREGISTERED = 'ui.editorActionUnregistered',
   
+  EDITOR_DECORATOR_REGISTERED = 'ui.editorDecoratorRegistered',
+  EDITOR_DECORATOR_UNREGISTERED = 'ui.editorDecoratorUnregistered',
+  
+  EDITOR_COMPLETION_PROVIDER_REGISTERED = 'ui.editorCompletionProviderRegistered',
+  EDITOR_COMPLETION_PROVIDER_UNREGISTERED = 'ui.editorCompletionProviderUnregistered',
+  
   CONTEXT_MENU_ITEM_REGISTERED = 'ui.contextMenuItemRegistered',
   CONTEXT_MENU_ITEM_UNREGISTERED = 'ui.contextMenuItemUnregistered',
+  
+  CONTEXT_MENU_GROUP_REGISTERED = 'ui.contextMenuGroupRegistered',
+  CONTEXT_MENU_GROUP_UNREGISTERED = 'ui.contextMenuGroupUnregistered',
+  
+  STATUS_BAR_ITEM_ADDED = 'ui.statusBarItemAdded',
+  STATUS_BAR_ITEM_UPDATED = 'ui.statusBarItemUpdated',
+  STATUS_BAR_ITEM_REMOVED = 'ui.statusBarItemRemoved',
+  
+  DIALOG_INPUT_BOX_SHOW = 'ui.dialogInputBoxShow',
+  DIALOG_SHOW_REQUEST = 'ui.dialogShowRequest',
+  WINDOW_CREATE_REQUEST = 'ui.windowCreateRequest',
+  
+  FILE_STAT_REQUEST = 'fs.statRequest',
+  DIRECTORY_DELETE_REQUEST = 'fs.directoryDeleteRequest',
+  FILE_WATCH_REQUEST = 'fs.fileWatchRequest',
+  FILE_WATCH_STOP = 'fs.fileWatchStop',
   
   COMMAND_EXECUTING = 'ui.commandExecuting',
   COMMAND_EXECUTED = 'ui.commandExecuted',
@@ -109,6 +164,11 @@ export enum HookType {
   SYSTEM_THEME_REGISTERED = 'system.themeRegistered',
   SYSTEM_THEME_UNREGISTERED = 'system.themeUnregistered',
   SYSTEM_THEME_APPLIED = 'system.themeApplied',
+  
+  CONFIGURATION_CHANGED = 'system.configurationChanged',
+  
+  WORKSPACE_FILE_OPEN_REQUEST = 'workspace.fileOpenRequest',
+  WORKSPACE_FILE_CREATED = 'workspace.fileCreated',
   
   // 插件安装事件
   PLUGIN_DOWNLOAD_STARTED = 'plugin.downloadStarted',
@@ -341,6 +401,118 @@ export interface Theme {
   styles?: Record<string, any>
 }
 
+// 状态栏项定义
+export interface StatusBarItem {
+  id: string
+  text: string
+  tooltip?: string
+  position: 'left' | 'right'
+  priority?: number
+  command?: string
+  backgroundColor?: string
+  color?: string
+}
+
+// 对话框选项定义
+export interface DialogOptions {
+  title?: string
+  message: string
+  detail?: string
+  buttons?: string[]
+  defaultId?: number
+  cancelId?: number
+  type?: 'info' | 'warning' | 'error' | 'question'
+}
+
+// 输入框选项定义
+export interface InputBoxOptions {
+  title?: string
+  prompt?: string
+  placeholder?: string
+  value?: string
+  password?: boolean
+  validateInput?: (value: string) => string | null
+}
+
+// 窗口选项定义
+export interface WindowOptions {
+  title?: string
+  width?: number
+  height?: number
+  x?: number
+  y?: number
+  modal?: boolean
+  resizable?: boolean
+  alwaysOnTop?: boolean
+}
+
+// 装饰器定义
+export interface EditorDecorator {
+  id: string
+  className: string
+  range: { from: number; to: number }
+  hoverMessage?: string
+}
+
+// 自动完成提供者定义
+export interface CompletionProvider {
+  id: string
+  triggerCharacters?: string[]
+  provide: (context: CompletionContext) => Promise<CompletionItem[]>
+}
+
+export interface CompletionContext {
+  position: number
+  line: string
+  lineNumber: number
+  character: number
+}
+
+export interface CompletionItem {
+  label: string
+  detail?: string
+  documentation?: string
+  insertText?: string
+  kind?: 'text' | 'function' | 'variable' | 'keyword' | 'snippet'
+}
+
+// 菜单组定义
+export interface MenuGroup {
+  id: string
+  label: string
+  position?: number
+  items: ContextMenuItem[]
+}
+
+// 差异算法定义
+export interface DiffAlgorithm {
+  id: string
+  name: string
+  description?: string
+  compute: (oldContent: string, newContent: string) => DiffResult
+}
+
+export interface DiffResult {
+  changes: DiffChange[]
+  similarity: number
+}
+
+export interface DiffChange {
+  type: 'insert' | 'delete' | 'modify'
+  oldRange?: { start: number; end: number }
+  newRange?: { start: number; end: number }
+  content?: string
+}
+
+// 文件统计信息
+export interface FileStats {
+  size: number
+  mtime: Date
+  ctime: Date
+  isFile: boolean
+  isDirectory: boolean
+}
+
 // 插件上下文接口
 export interface PluginContext {
   readonly pluginId: string
@@ -371,11 +543,26 @@ export interface PluginAPI {
 
 // UI API
 export interface PluginUIAPI {
-  sidebar: {
-    registerPanel(panel: SidebarPanel): Disposable
-    updatePanel(id: string, updates: Partial<SidebarPanel>): void
-    removePanel(id: string): void
-    getPanel(id: string): SidebarPanel | undefined
+  leftPanel: {
+    setContent(content: {
+      id: string
+      title: string
+      component: HTMLElement
+      onClose?: () => void
+    }): Disposable
+    hide(): void
+    show(): void
+  }
+  
+  rightPanel: {
+    setContent(content: {
+      id: string
+      title: string
+      component: HTMLElement
+      onClose?: () => void
+    }): Disposable
+    hide(): void
+    show(): void
   }
   
   navigation: {
@@ -386,30 +573,31 @@ export interface PluginUIAPI {
   
   editor: {
     registerAction(action: EditorAction): Disposable
-    registerDecorator(decorator: any): Disposable
-    registerCompletionProvider(provider: any): Disposable
+    registerDecorator(decorator: EditorDecorator): Disposable
+    registerCompletionProvider(provider: CompletionProvider): Disposable
   }
   
   contextMenu: {
     registerMenuItem(item: ContextMenuItem): Disposable
-    registerMenuGroup(group: any): Disposable
+    registerMenuGroup(group: MenuGroup): Disposable
   }
   
   statusBar: {
-    addItem(item: any): Disposable
-    updateItem(id: string, updates: any): void
+    addItem(item: StatusBarItem): Disposable
+    updateItem(id: string, updates: Partial<StatusBarItem>): void
     removeItem(id: string): void
   }
   
   dialog: {
-    showInformation(message: string, ...items: string[]): Promise<string | undefined>
-    showWarning(message: string, ...items: string[]): Promise<string | undefined>
-    showError(message: string, ...items: string[]): Promise<string | undefined>
-    showInputBox(options: any): Promise<string | undefined>
+    show(options: DialogOptions): Promise<number>
+    showInformation(message: string, detail?: string): Promise<void>
+    showWarning(message: string, detail?: string): Promise<void>
+    showError(message: string, detail?: string): Promise<void>
+    showInputBox(options: InputBoxOptions): Promise<string | undefined>
   }
   
   window: {
-    createWindow(options: any): Promise<any>
+    createWindow(options: WindowOptions): Promise<any>
     getActiveWindow(): any
     getAllWindows(): any[]
   }
@@ -421,23 +609,60 @@ export interface PluginDataAPI {
     readFile(path: string): Promise<string>
     writeFile(path: string, content: string): Promise<void>
     exists(path: string): Promise<boolean>
-    stat(path: string): Promise<any>
+    stat(path: string): Promise<FileStats>
     readdir(path: string): Promise<string[]>
-    watch(path: string, callback: any): Disposable
+    watch(path: string, callback: (event: string, filename: string) => void): Disposable
+    mkdir(path: string, recursive?: boolean): Promise<void>
+    rmdir(path: string, recursive?: boolean): Promise<void>
+    unlink(path: string): Promise<void>
+    copy(source: string, destination: string): Promise<void>
+    move(source: string, destination: string): Promise<void>
   }
   
   database: {
-    notes: any
-    reviews: any
-    categories: any
-    settings: any
-    custom: any
+    notes: {
+      create(note: any): Promise<any>
+      update(id: string, updates: any): Promise<void>
+      delete(id: string): Promise<void>
+      get(id: string): Promise<any>
+      list(filters?: any): Promise<any[]>
+      search(query: string): Promise<any[]>
+    }
+    reviews: {
+      create(review: any): Promise<any>
+      update(id: string, updates: any): Promise<void>
+      delete(id: string): Promise<void>
+      get(id: string): Promise<any>
+      list(filters?: any): Promise<any[]>
+    }
+    categories: {
+      create(category: any): Promise<any>
+      update(id: string, updates: any): Promise<void>
+      delete(id: string): Promise<void>
+      get(id: string): Promise<any>
+      list(): Promise<any[]>
+    }
+    settings: {
+      get(key: string): Promise<any>
+      set(key: string, value: any): Promise<void>
+      delete(key: string): Promise<void>
+      list(): Promise<Record<string, any>>
+    }
+    custom: {
+      createTable(name: string, schema: any): Promise<void>
+      insert(table: string, data: any): Promise<any>
+      update(table: string, id: string, updates: any): Promise<void>
+      delete(table: string, id: string): Promise<void>
+      query(table: string, filters?: any): Promise<any[]>
+    }
   }
   
   diff: {
-    registerAlgorithm(algorithm: any): Disposable
-    getDiffResult(oldContent: string, newContent: string, algorithmId?: string): any
-    applyDiff(content: string, diff: any): string
+    registerAlgorithm(algorithm: DiffAlgorithm): Disposable
+    getDiffResult(oldContent: string, newContent: string, algorithmId?: string): DiffResult
+    applyDiff(content: string, diff: DiffResult): string
+    unregisterAlgorithm(algorithmId: string): void
+    listAlgorithms(): DiffAlgorithm[]
   }
 }
 
